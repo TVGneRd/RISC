@@ -1,0 +1,12 @@
+{
+    "recommendations": [
+        "vinrobot.vhdl-formatter",
+        "ms-ceintl.vscode-language-pack-ru",
+        "ms-vscode.makefile-tools",
+        "rashwell.tcl",
+        "eamodio.gitlens",
+        "streetsidesoftware.code-spell-checker",
+        "streetsidesoftware.code-spell-checker-russian",
+        "rjyoung.vscode-modern-vhdl-support"
+    ]
+}

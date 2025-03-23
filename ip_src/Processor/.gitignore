@@ -1,0 +1,76 @@
+#########
+#Exclude ALL
+#########
+*
+/*
+#########
+#Include folders
+#########
+!*/
+#########
+#Enable service files
+#########
+!*.gitignore
+!*README.md
+!*makefile
+!*LICENSE
+#########
+#Source files:
+#########
+!*.vhd
+!*.v
+!*.sv
+!*.edn
+!*.m
+#########
+#Simulation logic analyzer
+#########
+!*.wcfg
+!*.coe
+#########
+#MIG
+#########
+!*.prj
+!*.mem
+#########
+#Constraint files
+#########
+!*.xdc
+#########
+#TCL - files
+#########
+!*.tcl
+!*.gtcl
+#########
+#Reports
+#########
+!*.rpt
+!*.txt
+!*.vdi
+#########
+#C-files
+#########
+!*.c
+!*.h
+!*.elf
+!*.cu
+!*.cuh
+!*.cpp
+!*.hpp
+#########
+#DATA files
+#########
+!*.dat
+#########
+#Documentation
+#########
+!*.pdf
+!*.DOXY
+
+#########
+#IP block files
+#########
+!*.xml
+#########
+Processor/*
+ip_src/Processor

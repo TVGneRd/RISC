@@ -1,0 +1,28 @@
+{
+    "[vhdl]": {
+        "editor.formatOnSave": true
+    },
+    "vhdl.formatter.align.all": true,
+    "cSpell.words": [
+        "ADDI",
+        "ANDI",
+        "AUIPC",
+        "BGEU",
+        "BLTU",
+        "DOWNTO",
+        "EBREAK",
+        "ECALL",
+        "funct",
+        "JALR",
+        "refclk",
+        "riscv",
+        "SLLI",
+        "SLTI",
+        "SLTIU",
+        "SLTU",
+        "SRAI",
+        "SRLI",
+        "XORI",
+        "подмодулями"
+    ]
+}
