@@ -26,7 +26,7 @@ ENTITY ProgramMemory_TOP IS
     -- AXI-4 MM (Только Reader) Ports
     --  Read address channel signals
     M_AXI_ARADDR  : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-    M_AXI_ARSIZE  : IN STD_LOGIC_VECTOR(2 DOWNTO 0);
+    M_AXI_ARLEN   : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
     M_AXI_ARVALID : IN STD_LOGIC;
     M_AXI_ARREADY : OUT STD_LOGIC;
 
