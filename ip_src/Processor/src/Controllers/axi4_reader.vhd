@@ -104,36 +104,6 @@ BEGIN
         END CASE;
     END PROCESS;
 
-    signal_store : PROCESS (clk, rst, update_read_data, update_read_addr, update_read_result)
-        VARIABLE read_data_store   : STD_LOGIC_VECTOR(M_AXI_RDATA'RANGE);
-        VARIABLE read_addr_store   : STD_LOGIC_VECTOR(read_addr'left DOWNTO 0);
-        VARIABLE read_result_store : STD_LOGIC_VECTOR(read_result'RANGE);
-        VARIABLE shift_modifier    : NATURAL;
-    BEGIN
-        IF rst = '0' THEN
-            read_data_store   := (OTHERS => '0');
-            read_addr_store   := (OTHERS => '0');
-            read_result_store := (OTHERS => '0');
-        ELSIF rising_edge(clk) THEN
-            IF update_read_data THEN
-                read_data_store := M_AXI_RDATA;
-            END IF;
-            IF update_read_addr THEN
-                read_addr_store := read_addr;
-            END IF;
-            IF update_read_result THEN
-                read_result_store := M_AXI_RRESP;
-            END IF;
-        END IF;
-
-        shift_modifier := 0;
-
-        read_data    <= read_data_store(read_data'left + shift_modifier * 8 DOWNTO shift_modifier * 8);
-        read_result  <= read_result_store;
-        M_AXI_ARADDR <= read_addr_store;
-        M_AXI_ARSIZE <= STD_LOGIC_VECTOR(to_unsigned(axi_data_width, M_AXI_ARSIZE'length));
-    END PROCESS;
-
     -- The state decides the output
     output_decider : PROCESS (cur_state, M_AXI_RDATA, read_addr, M_AXI_RRESP)
     BEGIN
