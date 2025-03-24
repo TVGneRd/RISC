@@ -29,6 +29,87 @@ ENTITY ALU IS
     ready : IN STD_LOGIC
   );
 END ENTITY ALU;
-ARCHITECTURE rtl OF ALU IS
+ARCHITECTURE behavioral OF ALU IS
+  -- Внутренние сигналы
+  SIGNAL res          : STD_LOGIC_VECTOR(31 DOWNTO 0); -- Временный результат
+  SIGNAL op1_signed   : SIGNED(31 DOWNTO 0);           -- Операнд 1 как знаковое число
+  SIGNAL op2_signed   : SIGNED(31 DOWNTO 0);           -- Операнд 2 как знаковое число
+  SIGNAL op1_unsigned : UNSIGNED(31 DOWNTO 0);         -- Операнд 1 как беззнаковое число
+  SIGNAL op2_unsigned : UNSIGNED(31 DOWNTO 0);         -- Операнд 2 как беззнаковое число
+  SIGNAL shift_amount : INTEGER RANGE 0 TO 31;         -- Величина сдвига
 BEGIN
-END ARCHITECTURE rtl;
+  -- Приведение типов для удобства
+  op1_signed   <= SIGNED(operand1);
+  op2_signed   <= SIGNED(operand2);
+  op1_unsigned <= UNSIGNED(operand1);
+  op2_unsigned <= UNSIGNED(operand2);
+  shift_amount <= to_integer(UNSIGNED(operand2(4 DOWNTO 0))); -- Для сдвигов (младшие 5 бит)
+
+  -- Основной процесс ALU
+  PROCESS (operand1, operand2, alu_op, op1_signed, op2_signed, op1_unsigned, op2_unsigned, shift_amount)
+  BEGIN
+    CASE alu_op IS
+        -- Сложение
+      WHEN OP_ADD =>
+        res <= STD_LOGIC_VECTOR(op1_signed + op2_signed);
+
+        -- Вычитание
+      WHEN OP_SUB =>
+        res <= STD_LOGIC_VECTOR(op1_signed - op2_signed);
+
+        -- Логическое И
+      WHEN OP_AND =>
+        res <= operand1 AND operand2;
+
+        -- Логическое ИЛИ
+      WHEN OP_OR =>
+        res <= operand1 OR operand2;
+
+        -- Логическое исключающее ИЛИ
+      WHEN OP_XOR =>
+        res <= operand1 XOR operand2;
+
+        -- Сдвиг влево
+      WHEN OP_SLL =>
+        res <= STD_LOGIC_VECTOR(shift_left(op1_unsigned, shift_amount));
+
+        -- Сдвиг вправо логический
+      WHEN OP_SRL =>
+        res <= STD_LOGIC_VECTOR(shift_right(op1_unsigned, shift_amount));
+
+        -- Сдвиг вправо арифметический
+      WHEN OP_SRA =>
+        res <= STD_LOGIC_VECTOR(shift_right(op1_signed, shift_amount));
+
+        -- Сравнение со знаком (SLT, SLTI)
+      WHEN OP_SLT =>
+        IF op1_signed < op2_signed THEN
+          res <= (0 => '1', OTHERS => '0'); -- 1, если op1 < op2
+        ELSE
+          res <= (OTHERS => '0'); -- 0, если op1 >= op2
+        END IF;
+        -- Сравнение без знака (SLTU, SLTIU)
+      WHEN OP_SLTU =>
+        IF op1_unsigned < op2_unsigned THEN
+          res <= (0 => '1', OTHERS => '0'); -- 1, если op1 < op2
+        ELSE
+          res <= (OTHERS => '0'); -- 0, если op1 >= op2
+        END IF;
+
+        -- Прямое копирование (для LUI, AUIPC)
+      WHEN OP_LUI =>
+        res <= operand1; -- Просто передаём operand1 (например, для LUI)
+
+        -- По умолчанию (можно добавить обработку ошибок)
+      WHEN OTHERS    =>
+        res <= (OTHERS => '0');
+    END CASE;
+  END PROCESS;
+
+  -- Выходы
+  result <= res;
+  zero   <= '1' WHEN res = (res'RANGE => '0') ELSE
+    '0';             -- Флаг нуля
+  sign <= res(31); -- Флаг знака (старший бит результата)
+
+END behavioral;
