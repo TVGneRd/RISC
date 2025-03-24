@@ -55,31 +55,51 @@ BEGIN
 
     -- handles the next_state variable
     state_transmission : PROCESS (cur_state, M_AXI_ARREADY,
-        M_AXI_RLAST, M_AXI_RVALID, read_start)
+        M_AXI_RLAST, M_AXI_RVALID, M_AXI_ARVALID)
     BEGIN
         next_state <= cur_state;
         CASE cur_state IS
             WHEN rst_state =>
-                next_state <= wait_for_start;
-            WHEN wait_for_start =>
-                IF read_start = '1' THEN
-                    next_state <= assert_arvalid;
-                END IF;
-            WHEN assert_arvalid =>
-                IF M_AXI_ARREADY = '1' THEN
-                    next_state <= wait_for_rvalid_rise;
-                END IF;
-            WHEN wait_for_rvalid_rise =>
-                IF M_AXI_RVALID = '1' THEN
-                    IF M_AXI_RLAST = '1' THEN
-                        next_state <= wait_for_start;
-                    ELSE
-                        next_state <= wait_for_rvalid_fall;
+                next_state <= IDLE;
+            WHEN IDLE =>
+                IF M_AXI_RVALID = '1'
+                    IF M_AXI_RREADY = '0' THEN
+                        next_state <= CHECK_ADDR;
                     END IF;
                 END IF;
-            WHEN wait_for_rvalid_fall =>
-                IF M_AXI_RVALID = '0' THEN
-                    next_state <= wait_for_rvalid_rise;
+            WHEN CHECK_ADDR =>
+                IF (address - cash_size) < cache_apper_bound THEN
+                    next_state <= LOAD_DATA;
+                ELSE
+                    IF M_AXI_ARVALID = '1' THEN
+                        next_state <= WAIT_AREADY;
+                    END IF;
+                END IF;
+            WHEN LOAD_DATA =>
+                IF M_AXI_RREADY = '1' THEN
+                    next_state <= IDLE;
+                END IF;
+            WHEN WAIT_AREADY =>
+                IF M_AXI_ARREADY = '1' THEN
+                    next_state <= WAIT_VALID;
+                END IF;
+            WHEN WAIT_VALID =>
+                IF M_AXI_RVALID = '1' THEN
+                    next_state <= REC_DATA;
+                END IF;
+            WHEN REC_DATA =>
+                IF M_AXI_RREADY = '1' THEN
+                    IF M_AXI_RVALID = '1' THEN
+                        next_state <= WRITE_CASH;
+                    END IF;
+                END IF;
+            WHEN WRITE_CASH =>
+                IF M_AXI_RREADY = '0' THEN
+                    IF M_AXI_RLAST = '0' THEN
+                        next_state <= REC_DATA;
+                    ELSE
+                        next_state <= LOAD_DATA;
+                    END IF;
                 END IF;
         END CASE;
     END PROCESS;
