@@ -51,32 +51,38 @@ ARCHITECTURE rtl OF Cache IS
   SIGNAL cur_state  : state_type := rst_state;
   SIGNAL next_state : state_type := rst_state;
 
-  SIGNAL update_read_data   : BOOLEAN := false;
-  SIGNAL update_read_addr   : BOOLEAN := false;
-  SIGNAL update_read_result : BOOLEAN := false;
+  SIGNAL update_read_data    : BOOLEAN                       := false;
+  SIGNAL update_read_addr    : BOOLEAN                       := false;
+  SIGNAL update_read_result  : BOOLEAN                       := false;
+  SIGNAL AXI_1_read_addr     : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL AXI_1_read_data     : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL AXI_1_read_start    : STD_LOGIC                     := '0';
+  SIGNAL AXI_1_read_complete : STD_LOGIC;
+  SIGNAL AXI_1_read_result   : STD_LOGIC_VECTOR(1 DOWNTO 0);
 BEGIN
-  PORT MAP(
-    clk => refclk,
-    rst => rst,
+  reader : ENTITY work.Controllers.axi4_reader
+    PORT MAP(
+      clk => refclk,
+      rst => rst,
 
-    read_addr
-    read_data
-    read_start
-    read_complete
-    read_result
+      read_addr     => AXI_1_read_addr,
+      read_data     => AXI_1_read_data,
+      read_start    => AXI_1_read_start,
+      read_complete => AXI_1_read_complete,
+      read_result   => AXI_1_read_result,
 
-    --  Read address channel signals
-    M_AXI_ARADDR  => M_AXI_ARADDR,
-    M_AXI_ARLEN   => M_AXI_ARLEN,
-    M_AXI_ARVALID => M_AXI_ARVALID,
-    M_AXI_ARREADY => M_AXI_ARREADY,
-    -- Read data channel signals
-    M_AXI_RDATA  => M_AXI_RDATA,
-    M_AXI_RRESP  => M_AXI_RRESP,
-    M_AXI_RLAST  => M_AXI_RLAST,
-    M_AXI_RVALID => M_AXI_RVALID,
-    M_AXI_RREADY => M_AXI_RREADY
-  );
+      --  Read address channel signals
+      M_AXI_ARADDR  => M_AXI_ARADDR,
+      M_AXI_ARLEN   => M_AXI_ARLEN,
+      M_AXI_ARVALID => M_AXI_ARVALID,
+      M_AXI_ARREADY => M_AXI_ARREADY,
+      -- Read data channel signals
+      M_AXI_RDATA  => M_AXI_RDATA,
+      M_AXI_RRESP  => M_AXI_RRESP,
+      M_AXI_RLAST  => M_AXI_RLAST,
+      M_AXI_RVALID => M_AXI_RVALID,
+      M_AXI_RREADY => M_AXI_RREADY
+    );
 
   -- Handles the cur_state variable
   sync_proc : PROCESS (clk, rst)
