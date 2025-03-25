@@ -56,28 +56,30 @@ ARCHITECTURE rtl OF Cache IS
   SIGNAL update_read_result : BOOLEAN := false;
 BEGIN
   PORT MAP(
-    clk
-    rst
+    clk => refclk,
+    rst => rst,
+
     read_addr
     read_data
     read_start
     read_complete
     read_result
+
     --  Read address channel signals
-    M_AXI_ARADDR
-    M_AXI_ARLEN
+    M_AXI_ARADDR => M_AXI_ARADDR,
+    M_AXI_ARLEN  => M_AXI_ARLEN,
     M_AXI_ARSIZE
     M_AXI_ARBURST
     M_AXI_ARCACHE
     M_AXI_ARUSER
-    M_AXI_ARVALID
-    M_AXI_ARREADY
+    M_AXI_ARVALID => M_AXI_ARVALID,
+    M_AXI_ARREADY => M_AXI_ARREADY,
     -- Read data channel signals
-    M_AXI_RDATA
-    M_AXI_RRESP
-    M_AXI_RLAST
-    M_AXI_RVALID
-    M_AXI_RREADY
+    M_AXI_RDATA  => M_AXI_RDATA,
+    M_AXI_RRESP  => M_AXI_RRESP,
+    M_AXI_RLAST  => M_AXI_RLAST,
+    M_AXI_RVALID => M_AXI_RVALID,
+    M_AXI_RREADY => M_AXI_RREADY
   );
 
   -- Handles the cur_state variable
