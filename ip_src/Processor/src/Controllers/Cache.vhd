@@ -66,12 +66,8 @@ BEGIN
     read_result
 
     --  Read address channel signals
-    M_AXI_ARADDR => M_AXI_ARADDR,
-    M_AXI_ARLEN  => M_AXI_ARLEN,
-    M_AXI_ARSIZE
-    M_AXI_ARBURST
-    M_AXI_ARCACHE
-    M_AXI_ARUSER
+    M_AXI_ARADDR  => M_AXI_ARADDR,
+    M_AXI_ARLEN   => M_AXI_ARLEN,
     M_AXI_ARVALID => M_AXI_ARVALID,
     M_AXI_ARREADY => M_AXI_ARREADY,
     -- Read data channel signals

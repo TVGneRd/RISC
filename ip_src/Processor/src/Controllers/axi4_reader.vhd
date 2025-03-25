@@ -18,10 +18,6 @@ ENTITY axi4_reader IS
         --  Read address channel signals
         M_AXI_ARADDR  : OUT STD_LOGIC_VECTOR(axi_address_width - 1 DOWNTO 0);
         M_AXI_ARLEN   : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
-        M_AXI_ARSIZE  : OUT STD_LOGIC_VECTOR(2 DOWNTO 0);
-        M_AXI_ARBURST : OUT STD_LOGIC_VECTOR(1 DOWNTO 0);
-        M_AXI_ARCACHE : OUT STD_LOGIC_VECTOR(3 DOWNTO 0);
-        M_AXI_ARUSER  : OUT STD_LOGIC_VECTOR(4 DOWNTO 0);
         M_AXI_ARVALID : OUT STD_LOGIC;
         M_AXI_ARREADY : IN STD_LOGIC;
         -- Read data channel signals
@@ -112,7 +108,7 @@ BEGIN
         read_data    <= read_data_store(read_data'left + shift_modifier * 8 DOWNTO shift_modifier * 8);
         read_result  <= read_result_store;
         M_AXI_ARADDR <= read_addr_store;
-        M_AXI_ARSIZE <= STD_LOGIC_VECTOR(to_unsigned(axi_data_width, M_AXI_ARSIZE'length));
+
     END PROCESS;
 
     -- The state decides the output
@@ -159,11 +155,5 @@ BEGIN
         -- One burst:
         M_AXI_ARLEN <= (OTHERS => '0');
         -- For the test, the burst type does not matter. Keep it at 0 (FIXED)
-        M_AXI_ARBURST <= (OTHERS => '0');
-        -- See tech ref page 103. ARCACHE and AWCACHE control wether or not the processor cache is involved in this transaction
-        -- For now, they are set to 0, no cache involvement. In the future this feature should be added
-        M_AXI_ARCACHE <= (OTHERS => '0');
-        M_AXI_ARUSER  <= (OTHERS => '0');
-
     END PROCESS;
 END Behavioral;
