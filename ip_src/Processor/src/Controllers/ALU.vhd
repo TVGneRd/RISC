@@ -3,7 +3,7 @@ LIBRARY IEEE;--! standard library IEEE (Institute of Electrical and Electronics 
 USE IEEE.std_logic_1164.ALL;--! standard unresolved logic UX01ZWLH-
 USE IEEE.numeric_std.ALL;--! for the signed, unsigned types and arithmetic ops
 
-USE work.Decoder.riscv_opcodes_pkg.ALL;
+USE work.riscv_opcodes_pkg.ALL;
 -- -- -- -- Задача блока: -- -- -- --
 -- 1. Выполнение арифметических операций R-тип и I-тип
 ------------------------------------
@@ -65,20 +65,22 @@ BEGIN
     IF rst = '1' THEN
       readyFlag <= '0';
     ELSIF cur_state = proc_state AND readyFlag = '0' THEN
-      op2_final <= operand_2 WHEN (opcode = OP_ADD OR opcode = OP_SUB OR
+      IF (opcode = OP_ADD OR opcode = OP_SUB OR
         opcode = OP_AND OR opcode = OP_OR OR
         opcode = OP_XOR OR opcode = OP_SLL OR
         opcode = OP_SRL OR opcode = OP_SRA OR
-        opcode = OP_SLT OR opcode = OP_SLTU) -- R-тип
-        ELSE
-        immediate; -- I-тип
+        opcode = OP_SLT OR opcode = OP_SLTU) THEN
+        op2_final <= operand_2; -- R-тип
+      ELSE
+        op2_final <= immediate; -- I-тип
+      END IF;
 
       -- Приведение типов для удобства
-      op1_signed   <= SIGNED(operand1);
+      op1_signed   <= SIGNED(operand_1);
       op2_signed   <= SIGNED(op2_final);
-      op1_unsigned <= UNSIGNED(operand1);
+      op1_unsigned <= UNSIGNED(operand_1);
       op2_unsigned <= UNSIGNED(op2_final);
-      shift_amount <= to_integer(UNSIGNED(operand2(4 DOWNTO 0))); -- Для сдвигов (младшие 5 бит)
+      shift_amount <= to_integer(UNSIGNED(operand_2(4 DOWNTO 0))); -- Для сдвигов (младшие 5 бит)
 
       CASE opcode IS
           -- Сложение
@@ -86,20 +88,20 @@ BEGIN
           res <= STD_LOGIC_VECTOR(op1_signed + op2_signed);
 
           -- Вычитание
-        WHEN OP_SUB | OP_SUBI =>
+        WHEN OP_SUB => --  | OP_SUBI
           res <= STD_LOGIC_VECTOR(op1_signed - op2_signed);
 
           -- Логическое И
         WHEN OP_AND | OP_ANDI =>
-          res <= operand1 AND operand2;
+          res <= operand_1 AND operand_2;
 
           -- Логическое ИЛИ
         WHEN OP_OR | OP_ORI =>
-          res <= operand1 OR operand2;
+          res <= operand_1 OR operand_2;
 
           -- Логическое исключающее ИЛИ
         WHEN OP_XOR | OP_XORI =>
-          res <= operand1 XOR operand2;
+          res <= operand_1 XOR operand_2;
 
           -- Сдвиг влево
         WHEN OP_SLL | OP_SLLI =>
@@ -130,79 +132,85 @@ BEGIN
 
           -- Прямое копирование (для LUI, AUIPC)
         WHEN OP_LUI =>
-          res <= operand1; -- Просто передаём operand1 (например, для LUI)
+          res <= operand_1; -- Просто передаём operand_1 (например, для LUI)
 
           -- По умолчанию (можно добавить обработку ошибок)
         WHEN OTHERS    =>
           res <= (OTHERS => '0');
       END CASE;
       readyFlag <= '1';
-    END PROCESS;
+    END IF;
 
-    state_decider : PROCESS (cur_state, valid)
-    BEGIN
-      next_state <= cur_state;
-      CASE cur_state IS
-        WHEN rst_state =>
-          IF rst = '0' THEN
-            next_state <= idle;
-          ELSE
-            next_state <= next_state;
-          END IF;
-        WHEN idle =>
-          IF valid = '1' THEN
-            next_state <= accept_state;
-          ELSE
-            next_state <= next_state;
-          END IF;
-        WHEN accept_state =>
-          IF readyFlag = '0' THEN
-            next_state <= proc_state;
-          ELSE
-            next_state <= next_state;
-          END IF;
-        WHEN proc_state =>
-          IF readyFlag = '1' THEN
-            next_state <= transmitting;
-          ELSE
-            next_state <= next_state;
-          END IF;
-        WHEN transmitting =>
-          IF valid = '0' THEN
-            next_state <= idle;
-          ELSE
-            next_state <= next_state;
-          END IF;
-      END CASE;
-    END PROCESS;
+  END PROCESS;
 
-    output_decide : PROCESS (cur_state)
-    BEGIN
-      CASE cur_state IS
-        WHEN rst_state =>
-          ready  <= '0';
-          result <= (OTHERS => '0');
-          zero   <= '0';
-          sign   <= '0';
-        WHEN idle =>
-          ready  <= '1';
-          result <= (OTHERS => '0');
-          zero   <= '0';
-          sign   <= '0';
-        WHEN accept_state =>
-          ready <= '0';
-        WHEN proc_state =>
-          IF readyFlag = '1' THEN
-            --Чек
-          END IF;
-        WHEN transmitting =>
-          -- Выходы
-          ready  <= '1';
-          result <= res;
-          zero   <= '1' WHEN res = (res'RANGE => '0') ELSE
-            '0';             -- Флаг нуля
-          sign <= res(31); -- Флаг знака (старший бит результата)
-      END CASE;
-    END PROCESS;
+  state_decider : PROCESS (cur_state, valid)
+  BEGIN
+    next_state <= cur_state;
+    CASE cur_state IS
+      WHEN rst_state =>
+        IF rst = '0' THEN
+          next_state <= idle;
+        ELSE
+          next_state <= next_state;
+        END IF;
+      WHEN idle =>
+        IF valid = '1' THEN
+          next_state <= accept_state;
+        ELSE
+          next_state <= next_state;
+        END IF;
+      WHEN accept_state =>
+        IF readyFlag = '0' THEN
+          next_state <= proc_state;
+        ELSE
+          next_state <= next_state;
+        END IF;
+      WHEN proc_state =>
+        IF readyFlag = '1' THEN
+          next_state <= transmitting;
+        ELSE
+          next_state <= next_state;
+        END IF;
+      WHEN transmitting =>
+        IF valid = '0' THEN
+          next_state <= idle;
+        ELSE
+          next_state <= next_state;
+        END IF;
+    END CASE;
+  END PROCESS;
 
-  END behavioral;
+  output_decide : PROCESS (cur_state)
+  BEGIN
+    CASE cur_state IS
+      WHEN rst_state =>
+        ready  <= '0';
+        result <= (OTHERS => '0');
+        zero   <= '0';
+        sign   <= '0';
+      WHEN idle =>
+        ready  <= '1';
+        result <= (OTHERS => '0');
+        zero   <= '0';
+        sign   <= '0';
+      WHEN accept_state =>
+        ready <= '0';
+      WHEN proc_state =>
+        IF readyFlag = '1' THEN
+          ready <= '1';
+        END IF;
+      WHEN transmitting =>
+        -- Выходы
+        ready  <= '1';
+        result <= res;
+
+        IF res = (res'RANGE => '0') THEN
+          zero <= '1';
+        ELSE
+          zero <= '0';
+        END IF;
+        sign <= res(31); -- Флаг знака (старший бит результата)
+    END CASE;
+  END PROCESS;
+
+END behavioral;
