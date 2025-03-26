@@ -52,7 +52,7 @@ ARCHITECTURE rtl OF ProgramMemory_TOP IS
 
   SIGNAL current_state, next_state : state_type;
   SIGNAL addr_reg                  : STD_LOGIC_VECTOR(11 DOWNTO 0);
-  SIGNAL len_counter               : INTEGER RANGE 0 TO 63 := 0;
+  SIGNAL len_counter               : STD_LOGIC_VECTOR(7 DOWNTO 0);
 
   TYPE memory_type IS ARRAY (0 TO 511) OF STD_LOGIC_VECTOR(31 DOWNTO 0);
   SIGNAL memory : memory_type := (
@@ -95,24 +95,22 @@ BEGIN
         END IF;
 
       WHEN PROCESS_ADDRESS =>
-        M_AXI_ARREADY <= '1';
         IF M_AXI_ARVALID = '1' AND M_AXI_ARREADY = '1' THEN
           next_state <= WAITING_DATA;
         ELSE
           next_state <= PROCESS_ADDRESS;
         END IF;
 
-      WHEN WAITING_DATA => -- исправить
-        IF unsigned(M_AXI_ARADDR) >= MIN_ADDR AND unsigned(M_AXI_ARADDR) <= MAX_ADDR THEN
-          M_AXI_RVALID                                                     <= '1';
-          next_state                                                       <= SEND_DATA;
+      WHEN WAITING_DATA =>
+        IF M_AXI_RVALID = '1' THEN
+          next_state <= SEND_DATA;
         ELSE
           next_state <= WAITING_DATA;
           M_AXI_RRESP = "11"
         END IF;
 
       WHEN SEND_DATA =>
-        IF M_AXI_RREADY = '1' AND len_counter = "0" AND M_AXI_RLAST = "1" THEN
+        IF M_AXI_RREADY = '1' AND len_counter = '0' AND M_AXI_RLAST = '1' THEN
           next_state <= IDLE;
         ELSE
           IF M_AXI_RREADY = '0' AND M_AXI_RVALID = '1' THEN
@@ -121,10 +119,8 @@ BEGIN
 
         WHEN CHECK_LEN =>
           IF M_AXI_RREADY = '1' AND len_counter > 0 THEN
-            next_state  <= SEND_DATA;
-            len_counter <= len_counter - 1;
+            next_state <= SEND_DATA;
           ELSE
-            M_AXI_RLAST = 1;
             M_AXI_RRESP = "00"
             next_state <= IDLE;
           END IF;
@@ -134,14 +130,27 @@ BEGIN
         END CASE;
     END PROCESS;
 
-    -- Чтение из памяти
-    memory_read : PROCESS (refclk)
+    action : PROCESS (current_state, M_AXI_ARVALID, M_AXI_ARREADY, M_AXI_RREADY, len_counter)
     BEGIN
-      IF rising_edge(refclk) THEN
-        IF current_state = SEND_DATA AND M_AXI_RVALID = '1' AND M_AXI_RREADY = '1' THEN
-          M_AXI_RDATA <= memory(M_AXI_ARADDR(11 DOWNTO 0));
-        END IF;
-      END IF;
-    END PROCESS;
 
-  END ARCHITECTURE rtl;
+      CASE current_state IS
+
+        WHEN PROCESS_ADDRESS =>
+          M_AXI_ARREADY <= '1';
+
+        WHEN WAITING_DATA => -- исправить
+          addr_reg                             <= M_AXI_ARADDR;
+          len_counter                          <= M_AXI_ARLEN
+            IF addr_reg >= MIN_ADDR AND addr_reg <= MAX_ADDR THEN
+              M_AXI_RVALID                         <= '1';
+      END IF;
+          END IF;
+
+      WHEN SEND_DATA =>
+      M_AXI_RDATA <= memory(addr_reg);
+      addr_reg = addr_reg + 1;
+      len_counter = len_counter - 1;
+
+      END PROCESS;
+
+    END ARCHITECTURE rtl;
