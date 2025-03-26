@@ -26,7 +26,7 @@ ENTITY Cache IS
 
     -- Порты для взаимодействия с ядром процессором, через него возвращаются данные из кэша
     address : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-    data    : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
+    data    : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
     valid   : IN STD_LOGIC;
     ready   : OUT STD_LOGIC;
 
@@ -47,28 +47,44 @@ ENTITY Cache IS
   );
 END ENTITY Cache;
 ARCHITECTURE rtl OF Cache IS
-  TYPE state_type IS (rst_state, IDLE, CHECK_ADDR, LOAD_DATA, WAIT_AREADY, WAIT_VALID, REC_DATA, WRITE_CASH);
+  CONSTANT cash_size : INTEGER := 64;
+
+  TYPE state_type IS (rst_state, IDLE, CHECK_ADDR, LOAD_DATA, REQUEST_DATA, WAIT_END_TRANSACTION);
   SIGNAL cur_state  : state_type := rst_state;
   SIGNAL next_state : state_type := rst_state;
 
-  SIGNAL update_read_data    : BOOLEAN                       := false;
-  SIGNAL update_read_addr    : BOOLEAN                       := false;
-  SIGNAL update_read_result  : BOOLEAN                       := false;
-  SIGNAL AXI_1_read_addr     : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
-  SIGNAL AXI_1_read_data     : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
-  SIGNAL AXI_1_read_start    : STD_LOGIC                     := '0';
+  SIGNAL update_read_data   : BOOLEAN                       := false;
+  SIGNAL update_read_addr   : BOOLEAN                       := false;
+  SIGNAL update_read_result : BOOLEAN                       := false;
+  SIGNAL AXI_1_read_addr    : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL AXI_1_read_len     : STD_LOGIC_VECTOR(7 DOWNTO 0)  := STD_LOGIC_VECTOR(to_unsigned(cash_size, 8));
+  SIGNAL AXI_1_read_data    : STD_LOGIC_VECTOR(7 DOWNTO 0)  := (OTHERS => '0');
+
+  SIGNAL AXI_1_read_start    : STD_LOGIC := '0';
+  SIGNAL AXI_1_read_last     : STD_LOGIC := '1';
   SIGNAL AXI_1_read_complete : STD_LOGIC;
   SIGNAL AXI_1_read_result   : STD_LOGIC_VECTOR(1 DOWNTO 0);
+
+  SIGNAL cache_upper_bound : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL cache_pointer     : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
+
+  TYPE cache_data_type IS ARRAY (0 TO cash_size) OF STD_LOGIC_VECTOR(7 DOWNTO 0);
+  SIGNAL cache_data : cache_data_type := (
+    OTHERS => (OTHERS => '0')
+  );
+
 BEGIN
-  reader : ENTITY work.Controllers.axi4_reader
+  reader : ENTITY work.axi4_reader
     PORT MAP(
       clk => refclk,
       rst => rst,
 
       read_addr     => AXI_1_read_addr,
+      read_len      => AXI_1_read_len,
       read_data     => AXI_1_read_data,
       read_start    => AXI_1_read_start,
       read_complete => AXI_1_read_complete,
+      read_last     => AXI_1_read_last,
       read_result   => AXI_1_read_result,
 
       --  Read address channel signals
@@ -85,115 +101,82 @@ BEGIN
     );
 
   -- Handles the cur_state variable
-  sync_proc : PROCESS (clk, rst)
+  sync_proc : PROCESS (refclk, rst)
   BEGIN
     IF rst = '0' THEN
       cur_state <= rst_state;
-    ELSIF rising_edge(clk) THEN
+    ELSIF rising_edge(refclk) THEN
       cur_state <= next_state;
     END IF;
   END PROCESS;
 
   -- handles the next_state variable
-  state_transmission : PROCESS (cur_state, M_AXI_ARREADY,
-    M_AXI_RLAST, M_AXI_RVALID, M_AXI_ARVALID)
+  state_transmission : PROCESS (refclk, cur_state)
   BEGIN
     next_state <= cur_state;
     CASE cur_state IS
       WHEN rst_state =>
         next_state <= IDLE;
       WHEN IDLE =>
-        IF M_AXI_RVALID = '1'
-          IF M_AXI_RREADY = '0' THEN
-            next_state <= CHECK_ADDR;
-          END IF;
+        IF valid = '1' THEN
+          next_state <= CHECK_ADDR;
         END IF;
       WHEN CHECK_ADDR =>
-        IF (address - cash_size) < cache_apper_bound THEN
+        IF (unsigned(address) - cash_size) < unsigned(cache_upper_bound) THEN
           next_state <= LOAD_DATA;
         ELSE
-          IF M_AXI_ARVALID = '1' THEN
-            next_state <= WAIT_AREADY;
-          END IF;
+          next_state <= REQUEST_DATA;
         END IF;
       WHEN LOAD_DATA =>
-        IF M_AXI_RREADY = '1' THEN
-          next_state <= IDLE;
+        next_state <= IDLE;
+      WHEN REQUEST_DATA =>
+        IF AXI_1_read_complete = '1' THEN
+          next_state <= WAIT_END_TRANSACTION;
         END IF;
-      WHEN WAIT_AREADY =>
-        IF M_AXI_ARREADY = '1' THEN
-          next_state <= WAIT_VALID;
-        END IF;
-      WHEN WAIT_VALID =>
-        IF M_AXI_RVALID = '1' THEN
-          next_state <= REC_DATA;
-        END IF;
-      WHEN REC_DATA =>
-        IF M_AXI_RREADY = '1' THEN
-          IF M_AXI_RVALID = '1' THEN
-            next_state <= WRITE_CASH;
-          END IF;
-        END IF;
-      WHEN WRITE_CASH =>
-        IF M_AXI_RREADY = '0' THEN
-          IF M_AXI_RLAST = '0' THEN
-            next_state <= REC_DATA;
-          ELSE
-            next_state <= LOAD_DATA;
-          END IF;
+      WHEN WAIT_END_TRANSACTION =>
+        IF AXI_1_read_last = '1' THEN
+          next_state <= LOAD_DATA;
         END IF;
     END CASE;
   END PROCESS;
 
   -- The state decides the output
-  output_decider : PROCESS (cur_state, M_AXI_RDATA, read_addr, M_AXI_RRESP)
+  output_decider : PROCESS (refclk, cur_state)
   BEGIN
     CASE cur_state IS
       WHEN rst_state =>
-        read_complete      <= '0';
-        M_AXI_ARVALID      <= '0';
-        M_AXI_RREADY       <= '0';
-        update_read_data   <= false;
-        update_read_addr   <= false;
-        update_read_result <= false;
-      WHEN wait_for_start =>
-        read_complete      <= '1';
-        M_AXI_ARVALID      <= '0';
-        M_AXI_RREADY       <= '0';
-        update_read_data   <= false;
-        update_read_addr   <= true;
-        update_read_result <= false;
-      WHEN assert_arvalid =>
-        read_complete      <= '0';
-        M_AXI_ARVALID      <= '1';
-        M_AXI_RREADY       <= '0';
-        update_read_data   <= true;
-        update_read_addr   <= false;
-        update_read_result <= true;
-      WHEN wait_for_rvalid_rise =>
-        read_complete      <= '0';
-        M_AXI_ARVALID      <= '0';
-        M_AXI_RREADY       <= '1';
-        update_read_data   <= true;
-        update_read_addr   <= false;
-        update_read_result <= true;
-      WHEN wait_for_rvalid_fall =>
-        read_complete      <= '0';
-        M_AXI_ARVALID      <= '0';
-        M_AXI_RREADY       <= '0';
-        update_read_data   <= true;
-        update_read_addr   <= false;
-        update_read_result <= true;
-    END CASE;
-    -- The following signals get a default value because this is still a simple test
-    -- One burst:
-    M_AXI_ARLEN <= (OTHERS => '0');
-    -- For the test, the burst type does not matter. Keep it at 0 (FIXED)
-    M_AXI_ARBURST <= (OTHERS => '0');
-    -- See tech ref page 103. ARCACHE and AWCACHE control wether or not the processor cache is involved in this transaction
-    -- For now, they are set to 0, no cache involvement. In the future this feature should be added
-    M_AXI_ARCACHE <= (OTHERS => '0');
-    M_AXI_ARUSER  <= (OTHERS => '0');
+        -- ДОБАВИТЬ!
 
+      WHEN CHECK_ADDR =>
+        -- ДОБАВИТЬ!
+        cache_pointer <= (OTHERS => '0');
+
+      WHEN REQUEST_DATA =>
+        AXI_1_read_addr  <= address;
+        AXI_1_read_len   <= STD_LOGIC_VECTOR(to_unsigned(cache_size, 7));
+        AXI_1_read_start <= '1';
+        data             <= (OTHERS => '0');
+        ready            <= '0';
+        cache_pointer    <= cache_pointer;
+
+      WHEN LOAD_DATA              =>
+        AXI_1_read_addr  <= (OTHERS => '0');
+        AXI_1_read_len   <= (OTHERS => '0');
+        AXI_1_read_start <= '0';
+        data             <= cache_data(to_integer(unsigned(address) MOD cache_size));
+        ready            <= '1';
+
+      WHEN WAIT_END_TRANSACTION =>
+        AXI_1_read_addr  <= AXI_1_read_addr;
+        AXI_1_read_len   <= AXI_1_read_len;
+        AXI_1_read_start <= AXI_1_read_start;
+        data             <= (OTHERS => '0');
+        ready            <= '0';
+
+        IF AXI_1_read_complete = '1' THEN
+          cache_data(to_integer(unsigned(address) MOD cache_size + unsigned(cache_pointer))) <= AXI_1_read_data;
+          cache_pointer                                                                      <= STD_LOGIC_VECTOR(unsigned(cache_pointer) + 1);
+        END IF;
+    END CASE;
   END PROCESS;
 END ARCHITECTURE rtl;

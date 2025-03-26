@@ -3,25 +3,23 @@ USE IEEE.STD_LOGIC_1164.ALL;
 USE ieee.numeric_std.ALL;
 
 ENTITY axi4_reader IS
-    GENERIC (
-        axi_data_width    : NATURAL RANGE 1 TO 255 := 5;
-        axi_address_width : NATURAL RANGE 1 TO 255 := 6
-    );
     PORT (
         clk           : IN STD_LOGIC;
         rst           : IN STD_LOGIC;
-        read_addr     : IN STD_LOGIC_VECTOR(axi_address_width - 1 DOWNTO 0);
-        read_data     : OUT STD_LOGIC_VECTOR(axi_data_width - 1 DOWNTO 0);
+        read_addr     : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
+        read_data     : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
+        read_len      : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+        read_last     : OUT STD_LOGIC;
         read_start    : IN STD_LOGIC;
         read_complete : OUT STD_LOGIC;
         read_result   : OUT STD_LOGIC_VECTOR(1 DOWNTO 0);
         --  Read address channel signals
-        M_AXI_ARADDR  : OUT STD_LOGIC_VECTOR(axi_address_width - 1 DOWNTO 0);
+        M_AXI_ARADDR  : OUT STD_LOGIC_VECTOR(11 DOWNTO 0);
         M_AXI_ARLEN   : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
         M_AXI_ARVALID : OUT STD_LOGIC;
         M_AXI_ARREADY : IN STD_LOGIC;
         -- Read data channel signals
-        M_AXI_RDATA  : IN STD_LOGIC_VECTOR(axi_data_width - 1 DOWNTO 0);
+        M_AXI_RDATA  : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
         M_AXI_RRESP  : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
         M_AXI_RLAST  : IN STD_LOGIC;
         M_AXI_RVALID : IN STD_LOGIC;
@@ -151,9 +149,9 @@ BEGIN
                 update_read_addr   <= false;
                 update_read_result <= true;
         END CASE;
-        -- The following signals get a default value because this is still a simple test
-        -- One burst:
-        M_AXI_ARLEN <= (OTHERS => '0');
-        -- For the test, the burst type does not matter. Keep it at 0 (FIXED)
+
+        M_AXI_ARLEN <= read_len;
+        read_last   <= M_AXI_RLAST;
+
     END PROCESS;
 END Behavioral;
