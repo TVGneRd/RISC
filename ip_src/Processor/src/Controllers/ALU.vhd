@@ -52,7 +52,7 @@ ARCHITECTURE behavioral OF ALU IS
 BEGIN
   state_transition : PROCESS (refclk, rst)
   BEGIN
-    IF rst = '0' THEN
+    IF rst = '1' THEN
       cur_state <= rst_state;
     ELSIF rising_edge(refclk) THEN
       cur_state <= next_state;
@@ -62,7 +62,7 @@ BEGIN
   -- Основной процесс ALU
   processing : PROCESS (rst, cur_state)
   BEGIN
-    IF rst = '0' THEN
+    IF rst = '1' THEN
       readyFlag <= '0';
     ELSIF cur_state = proc_state AND readyFlag = '0' THEN
       op2_final <= operand_2 WHEN (opcode = OP_ADD OR opcode = OP_SUB OR
@@ -144,7 +144,7 @@ BEGIN
       next_state <= cur_state;
       CASE cur_state IS
         WHEN rst_state =>
-          IF rst = '1' THEN
+          IF rst = '0' THEN
             next_state <= idle;
           ELSE
             next_state <= next_state;
