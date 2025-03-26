@@ -17,14 +17,14 @@ USE IEEE.numeric_std.ALL;--! for the signed, unsigned types and arithmetic ops
 ENTITY Registers IS
   PORT (
     refclk : IN STD_LOGIC;--! reference clock expect 250Mhz
-    rst    : IN STD_LOGIC--! sync active high reset. sync -> refclk
+    rst    : IN STD_LOGIC;--! sync active high reset. sync -> refclk
 
-    addr_i  : IN STD_LOGIC_VECTOR(5 DOWNTO 0); -- адрес регистра (0-31)
-    data_in : IN STD_LOGIC_VECTOR(31 DOWNTO 0) -- данные которые хотим записать в регистр 
+    addr_i  : IN STD_LOGIC_VECTOR(5 DOWNTO 0);  -- адрес регистра (0-31)
+    data_in : IN STD_LOGIC_VECTOR(31 DOWNTO 0); -- данные которые хотим записать в регистр 
 
     data_out_i : OUT STD_LOGIC_VECTOR(31 DOWNTO 0); -- данные регистра по адресу
 
-    write_i : IN STD_LOGIC; -- разрешение на запись, если 0 то данные возвращаются в data_out, иначе записываются в регистр из data_in
+    write_enable : IN STD_LOGIC -- разрешение на запись, если 0 то данные возвращаются в data_out, иначе записываются в регистр из data_in
   );
 END ENTITY Registers;
 
@@ -36,14 +36,14 @@ BEGIN
   registers_i(0) <= (OTHERS => '0');                           -- Обеспечиваем, что x0 всегда 0
   data_out_i     <= registers_i(to_integer(unsigned(addr_i))); -- Записывает в data_out_i чему равен регистр по адресу addr_i
 
-  PROCESS (clk, reset)
+  handle : PROCESS (refclk, rst)
   BEGIN
-    IF reset = '1' THEN
+    IF rst = '1' THEN
       registers_i <= (OTHERS => (OTHERS => '0'));
-    ELSIF rising_edge(clk) THEN
-      IF we_i = '1' THEN
+    ELSIF rising_edge(refclk) THEN
+      IF write_enable = '1' THEN
         IF unsigned(addr_i) /= 0 THEN
-          registers_x(to_integer(unsigned(addr_i))) <= data_in;
+          registers_i(to_integer(unsigned(addr_i))) <= data_in;
         END IF;
       END IF;
     END IF;
