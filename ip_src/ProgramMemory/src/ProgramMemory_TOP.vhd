@@ -61,7 +61,7 @@ ARCHITECTURE rtl OF ProgramMemory_TOP IS
   );
 
   CONSTANT MIN_ADDR : STD_LOGIC_VECTOR(11 DOWNTO 0) := x"00";
-  CONSTANT MAX_ADDR : STD_LOGIC_VECTOR(11 DOWNTO 0) := x"FF";
+  CONSTANT MAX_ADDR : STD_LOGIC_VECTOR(11 DOWNTO 0) := x"FFF";
 
 BEGIN
 
@@ -134,23 +134,24 @@ BEGIN
     BEGIN
 
       CASE current_state IS
-
         WHEN PROCESS_ADDRESS =>
           M_AXI_ARREADY <= '1';
 
         WHEN WAITING_DATA => -- исправить
-          addr_reg                             <= M_AXI_ARADDR;
-          len_counter                          <= M_AXI_ARLEN
-            IF addr_reg >= MIN_ADDR AND addr_reg <= MAX_ADDR THEN
-              M_AXI_RVALID                         <= '1';
-      END IF;
+          addr_reg    <= M_AXI_ARADDR;
+          len_counter <= M_AXI_ARLEN;
+
+          IF addr_reg >= MIN_ADDR AND addr_reg <= MAX_ADDR THEN
+            M_AXI_RVALID                         <= '1';
           END IF;
 
-      WHEN SEND_DATA =>
-      M_AXI_RDATA <= memory(addr_reg);
-      addr_reg = addr_reg + 1;
-      len_counter = len_counter - 1;
+        WHEN SEND_DATA =>
+          M_AXI_RDATA <= memory(addr_reg);
+          addr_reg = addr_reg + 1;
+          len_counter = len_counter - 1;
 
-      END PROCESS;
+      END CASE;
 
-    END ARCHITECTURE rtl;
+    END PROCESS;
+
+  END ARCHITECTURE rtl;
