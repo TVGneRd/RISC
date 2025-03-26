@@ -144,7 +144,7 @@ BEGIN
       next_state <= cur_state;
       CASE cur_state IS
         WHEN rst_state =>
-          IF reset = '1' THEN
+          IF rst = '1' THEN
             next_state <= idle;
           ELSE
             next_state <= next_state;
