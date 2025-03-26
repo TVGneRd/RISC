@@ -128,7 +128,9 @@ BEGIN
           next_state <= REQUEST_DATA;
         END IF;
       WHEN LOAD_DATA =>
-        next_state <= IDLE;
+        IF valid = '0' THEN
+          next_state <= IDLE;
+        END IF;
       WHEN REQUEST_DATA =>
         IF AXI_1_read_complete = '1' THEN
           next_state <= WAIT_END_TRANSACTION;
