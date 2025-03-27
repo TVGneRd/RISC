@@ -149,7 +149,7 @@ BEGIN
       WHEN rst_state =>
         -- ДОБАВИТЬ!
         AXI_1_read_addr  <= (OTHERS => '0');
-        AXI_1_read_len   <= STD_LOGIC_VECTOR(to_unsigned(cache_size, 7));
+        AXI_1_read_len   <= (OTHERS => '0');
         AXI_1_read_start <= '0';
         data             <= (OTHERS => '0');
         ready            <= '0';
@@ -157,7 +157,7 @@ BEGIN
       WHEN CHECK_ADDR             =>
         -- ДОБАВИТЬ!
         AXI_1_read_addr  <= (OTHERS => '0');
-        AXI_1_read_len   <= STD_LOGIC_VECTOR(to_unsigned(cache_size, 7));
+        AXI_1_read_len   <= (OTHERS => '0');
         AXI_1_read_start <= '0';
         data             <= (OTHERS => '0');
         ready            <= '1';
