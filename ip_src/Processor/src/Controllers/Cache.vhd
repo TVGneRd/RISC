@@ -148,10 +148,20 @@ BEGIN
     CASE cur_state IS
       WHEN rst_state =>
         -- ДОБАВИТЬ!
-
-      WHEN CHECK_ADDR =>
+        AXI_1_read_addr  <= (OTHERS => '0');
+        AXI_1_read_len   <= STD_LOGIC_VECTOR(to_unsigned(cache_size, 7));
+        AXI_1_read_start <= '0';
+        data             <= (OTHERS => '0');
+        ready            <= '0';
+        cache_pointer    <= (OTHERS => '0');
+      WHEN CHECK_ADDR             =>
         -- ДОБАВИТЬ!
-        cache_pointer <= (OTHERS => '0');
+        AXI_1_read_addr  <= (OTHERS => '0');
+        AXI_1_read_len   <= STD_LOGIC_VECTOR(to_unsigned(cache_size, 7));
+        AXI_1_read_start <= '0';
+        data             <= (OTHERS => '0');
+        ready            <= '1';
+        cache_pointer    <= (OTHERS => '0');
 
       WHEN REQUEST_DATA =>
         AXI_1_read_addr  <= address;
