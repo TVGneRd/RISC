@@ -146,7 +146,7 @@ BEGIN
   output_decider : PROCESS (refclk, cur_state)
   BEGIN
     CASE cur_state IS
-      WHEN rst_state =>
+      WHEN rst_state | IDLE =>
         -- ДОБАВИТЬ!
         AXI_1_read_addr  <= (OTHERS => '0');
         AXI_1_read_len   <= (OTHERS => '0');
@@ -154,7 +154,8 @@ BEGIN
         data             <= (OTHERS => '0');
         ready            <= '0';
         cache_pointer    <= (OTHERS => '0');
-      WHEN CHECK_ADDR             =>
+
+      WHEN CHECK_ADDR =>
         -- ДОБАВИТЬ!
         AXI_1_read_addr  <= (OTHERS => '0');
         AXI_1_read_len   <= (OTHERS => '0');
