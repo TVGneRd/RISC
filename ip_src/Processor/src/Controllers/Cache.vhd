@@ -169,7 +169,7 @@ BEGIN
         AXI_1_read_start <= '1';
         data             <= (OTHERS => '0');
         ready            <= '0';
-        cache_pointer    <= cache_pointer;
+        cache_pointer    <= (OTHERS => '0');
 
       WHEN LOAD_DATA              =>
         AXI_1_read_addr  <= (OTHERS => '0');
@@ -189,6 +189,8 @@ BEGIN
           cache_data(to_integer(unsigned(address) MOD cache_size + unsigned(cache_pointer))) <= AXI_1_read_data;
           cache_pointer                                                                      <= STD_LOGIC_VECTOR(unsigned(cache_pointer) + 1);
         END IF;
+        cache_upper_bound <= unsigned(address) + cache_pointer;
     END CASE;
+
   END PROCESS;
 END ARCHITECTURE rtl;
