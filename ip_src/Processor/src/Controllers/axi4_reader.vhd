@@ -41,7 +41,7 @@ BEGIN
     -- Handles the cur_state variable
     sync_proc : PROCESS (clk, rst)
     BEGIN
-        IF rst = '0' THEN
+        IF rst = '1' THEN
             cur_state <= rst_state;
         ELSIF rising_edge(clk) THEN
             cur_state <= next_state;
@@ -85,7 +85,7 @@ BEGIN
         VARIABLE read_result_store : STD_LOGIC_VECTOR(read_result'RANGE);
         VARIABLE shift_modifier    : NATURAL;
     BEGIN
-        IF rst = '0' THEN
+        IF rst = '1' THEN
             read_data_store   := (OTHERS => '0');
             read_addr_store   := (OTHERS => '0');
             read_result_store := (OTHERS => '0');
