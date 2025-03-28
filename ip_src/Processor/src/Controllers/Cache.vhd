@@ -26,7 +26,7 @@ ENTITY Cache IS
 
     -- Порты для взаимодействия с ядром процессором, через него возвращаются данные из кэша
     address : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-    data    : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+    data    : OUT STD_LOGIC_VECTOR(32 DOWNTO 0);
     valid   : IN STD_LOGIC;
     ready   : OUT STD_LOGIC;
 
@@ -175,8 +175,11 @@ BEGIN
         AXI_1_read_addr  <= (OTHERS => '0');
         AXI_1_read_len   <= (OTHERS => '0');
         AXI_1_read_start <= '0';
-        data             <= cache_data(to_integer(unsigned(address) MOD cache_size));
-        ready            <= '1';
+        data             <= cache_data(to_integer((unsigned(address) + 3) MOD cache_size)) & -- Байт 3 (старший)
+          cache_data(to_integer((unsigned(address) + 2) MOD cache_size)) &                     -- Байт 2
+          cache_data(to_integer((unsigned(address) + 1) MOD cache_size)) &                     -- Байт 1
+          cache_data(to_integer(unsigned(address) MOD cache_size));                            -- Байт 0 (младший)
+        ready <= '1';
 
       WHEN WAIT_END_TRANSACTION =>
         AXI_1_read_addr  <= AXI_1_read_addr;
