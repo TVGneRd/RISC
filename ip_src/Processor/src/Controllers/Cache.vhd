@@ -103,7 +103,7 @@ BEGIN
   -- Handles the cur_state variable
   sync_proc : PROCESS (refclk, rst)
   BEGIN
-    IF rst = '0' THEN
+    IF rst = '1' THEN
       cur_state <= rst_state;
     ELSIF rising_edge(refclk) THEN
       cur_state <= next_state;
