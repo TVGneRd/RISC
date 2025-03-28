@@ -166,7 +166,7 @@ BEGIN
 
       WHEN REQUEST_DATA =>
         AXI_1_read_addr  <= address;
-        AXI_1_read_len   <= STD_LOGIC_VECTOR(to_unsigned(cache_size, 7));
+        AXI_1_read_len   <= STD_LOGIC_VECTOR(to_unsigned(cache_size, 8));
         AXI_1_read_start <= '1';
         data             <= (OTHERS => '0');
         ready            <= '0';
