@@ -26,7 +26,7 @@ ENTITY Cache IS
 
     -- Порты для взаимодействия с ядром процессором, через него возвращаются данные из кэша
     address : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-    data    : OUT STD_LOGIC_VECTOR(32 DOWNTO 0);
+    data    : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
     valid   : IN STD_LOGIC;
     ready   : OUT STD_LOGIC;
 
