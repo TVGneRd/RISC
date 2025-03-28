@@ -7,7 +7,7 @@ ENTITY axi4_reader IS
         clk           : IN STD_LOGIC;
         rst           : IN STD_LOGIC;
         read_addr     : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-        read_data     : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
+        read_data     : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
         read_len      : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
         read_last     : OUT STD_LOGIC;
         read_start    : IN STD_LOGIC;
