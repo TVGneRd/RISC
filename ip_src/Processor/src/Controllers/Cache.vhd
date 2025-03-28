@@ -188,8 +188,9 @@ BEGIN
         IF AXI_1_read_complete = '1' THEN
           cache_data(to_integer(unsigned(address) MOD cache_size + unsigned(cache_pointer))) <= AXI_1_read_data;
           cache_pointer                                                                      <= STD_LOGIC_VECTOR(unsigned(cache_pointer) + 1);
+          cache_upper_bound                                                                  <= STD_LOGIC_VECTOR(unsigned(address) + unsigned(cache_pointer));
         END IF;
-        cache_upper_bound <= unsigned(address) + cache_pointer;
+
     END CASE;
 
   END PROCESS;
