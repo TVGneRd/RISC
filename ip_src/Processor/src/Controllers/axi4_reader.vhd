@@ -121,7 +121,7 @@ BEGIN
                 update_read_addr   <= false;
                 update_read_result <= false;
             WHEN wait_for_start =>
-                read_complete      <= '1';
+                read_complete      <= '0';
                 M_AXI_ARVALID      <= '0';
                 M_AXI_RREADY       <= '0';
                 update_read_data   <= false;
