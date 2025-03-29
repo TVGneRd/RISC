@@ -5,7 +5,7 @@ USE IEEE.numeric_std.ALL;--! for the signed, unsigned types and arithmetic ops
 
 -- -- -- -- Задача блока: -- -- -- --
 -- 1. Дождаться valid=1, сделать ready=0
--- 2. Проверить находится ли address в диапазоне кэша (address - cache_size) < cache_upper_bound
+-- 2. Проверить находится ли address в диапазоне кэша address <= cache_upper_bound && address > cache_upper_bound - cache_size
 -- 3. Если адрес находится в диапазоне, то просто переходим к пункту 4.
 -- 3. Если адрес НЕ находится в диапазоне -> считывать 64 байта данных из памяти по AXI-4, записать их собственный кэш (это может быть любой массив)
 -- 4. Установить data=массив_загруженных_данных[address % cache_size] и ready=1
@@ -49,7 +49,7 @@ END ENTITY Cache;
 ARCHITECTURE rtl OF Cache IS
   CONSTANT cash_size : INTEGER := 64;
 
-  TYPE state_type IS (rst_state, IDLE, CHECK_ADDR, LOAD_DATA, REQUEST_DATA, WAIT_END_TRANSACTION);
+  TYPE state_type IS (rst_state, IDLE, CHECK_ADDR, LOAD_DATA, WAIT_END_TRANSACTION); -- WRITE_CACHE,
   SIGNAL cur_state  : state_type := rst_state;
   SIGNAL next_state : state_type := rst_state;
 
@@ -68,7 +68,7 @@ ARCHITECTURE rtl OF Cache IS
   SIGNAL cache_upper_bound : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
   SIGNAL cache_pointer     : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
 
-  TYPE cache_data_type IS ARRAY (0 TO cash_size) OF STD_LOGIC_VECTOR(7 DOWNTO 0);
+  TYPE cache_data_type IS ARRAY (0 TO cash_size - 1) OF STD_LOGIC_VECTOR(7 DOWNTO 0);
   SIGNAL cache_data : cache_data_type := (
     OTHERS => (OTHERS => '0')
   );
@@ -117,27 +117,31 @@ BEGIN
     CASE cur_state IS
       WHEN rst_state =>
         next_state <= IDLE;
+
       WHEN IDLE =>
         IF valid = '1' THEN
           next_state <= CHECK_ADDR;
         END IF;
+
       WHEN CHECK_ADDR =>
-        IF (unsigned(address) - cash_size) < unsigned(cache_upper_bound) THEN
-          next_state <= LOAD_DATA;
+        IF unsigned(address) <= unsigned(cache_upper_bound) AND unsigned(address) >= (unsigned(cache_upper_bound) - cache_size + 1) THEN
+          next_state           <= LOAD_DATA;
         ELSE
-          next_state <= REQUEST_DATA;
+          next_state <= WAIT_END_TRANSACTION;
         END IF;
+
       WHEN LOAD_DATA =>
         IF valid = '0' THEN
           next_state <= IDLE;
         END IF;
-      WHEN REQUEST_DATA =>
-        IF AXI_1_read_complete = '1' THEN
-          next_state <= WAIT_END_TRANSACTION;
-        END IF;
+
       WHEN WAIT_END_TRANSACTION =>
-        IF AXI_1_read_last = '1' THEN
-          next_state <= LOAD_DATA;
+        IF AXI_1_read_complete = '1' THEN
+          IF AXI_1_read_last = '1' THEN
+            next_state <= LOAD_DATA;
+          ELSE
+            next_state <= WAIT_END_TRANSACTION;
+          END IF;
         END IF;
     END CASE;
   END PROCESS;
@@ -146,28 +150,24 @@ BEGIN
   output_decider : PROCESS (refclk, cur_state)
   BEGIN
     CASE cur_state IS
-      WHEN rst_state | IDLE =>
-        -- ДОБАВИТЬ!
+      WHEN rst_state              =>
         AXI_1_read_addr  <= (OTHERS => '0');
         AXI_1_read_len   <= (OTHERS => '0');
         AXI_1_read_start <= '0';
         data             <= (OTHERS => '0');
         ready            <= '0';
         cache_pointer    <= (OTHERS => '0');
-
-      WHEN CHECK_ADDR =>
-        -- ДОБАВИТЬ!
+      WHEN IDLE                   =>
         AXI_1_read_addr  <= (OTHERS => '0');
         AXI_1_read_len   <= (OTHERS => '0');
         AXI_1_read_start <= '0';
         data             <= (OTHERS => '0');
         ready            <= '1';
         cache_pointer    <= (OTHERS => '0');
-
-      WHEN REQUEST_DATA =>
-        AXI_1_read_addr  <= address;
-        AXI_1_read_len   <= STD_LOGIC_VECTOR(to_unsigned(cache_size, 8));
-        AXI_1_read_start <= '1';
+      WHEN CHECK_ADDR             =>
+        AXI_1_read_addr  <= (OTHERS => '0');
+        AXI_1_read_len   <= (OTHERS => '0');
+        AXI_1_read_start <= '0';
         data             <= (OTHERS => '0');
         ready            <= '0';
         cache_pointer    <= (OTHERS => '0');
@@ -183,18 +183,17 @@ BEGIN
         ready <= '1';
 
       WHEN WAIT_END_TRANSACTION =>
-        AXI_1_read_addr  <= AXI_1_read_addr;
-        AXI_1_read_len   <= AXI_1_read_len;
-        AXI_1_read_start <= AXI_1_read_start;
+        AXI_1_read_addr  <= address;
+        AXI_1_read_len   <= STD_LOGIC_VECTOR(to_unsigned(cache_size, 8));
+        AXI_1_read_start <= '1';
         data             <= (OTHERS => '0');
         ready            <= '0';
 
-        IF AXI_1_read_complete = '1' THEN
-          cache_data(to_integer(unsigned(address) MOD cache_size + unsigned(cache_pointer))) <= AXI_1_read_data;
-          cache_pointer                                                                      <= STD_LOGIC_VECTOR(unsigned(cache_pointer) + 1);
-          cache_upper_bound                                                                  <= STD_LOGIC_VECTOR(unsigned(address) + unsigned(cache_pointer));
+        IF falling_edge(refclk) AND AXI_1_read_complete = '1' THEN
+          cache_data(to_integer(unsigned(cache_pointer))) <= AXI_1_read_data;
+          cache_pointer                                   <= STD_LOGIC_VECTOR(unsigned(cache_pointer) + 1);
+          cache_upper_bound                               <= STD_LOGIC_VECTOR(unsigned(address) + unsigned(cache_pointer));
         END IF;
-
     END CASE;
 
   END PROCESS;

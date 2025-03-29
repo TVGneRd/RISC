@@ -66,15 +66,15 @@ BEGIN
                 END IF;
             WHEN wait_for_rvalid_rise =>
                 IF M_AXI_RVALID = '1' THEN
-                    IF M_AXI_RLAST = '1' THEN
-                        next_state <= wait_for_start;
-                    ELSE
-                        next_state <= wait_for_rvalid_fall;
-                    END IF;
+                    next_state <= wait_for_rvalid_fall;
                 END IF;
             WHEN wait_for_rvalid_fall =>
                 IF M_AXI_RVALID = '0' THEN
-                    next_state <= wait_for_rvalid_rise;
+                    IF M_AXI_RLAST = '1' THEN
+                        next_state <= wait_for_start;
+                    ELSE
+                        next_state <= wait_for_rvalid_rise;
+                    END IF;
                 END IF;
         END CASE;
     END PROCESS;
@@ -117,6 +117,7 @@ BEGIN
                 read_complete      <= '0';
                 M_AXI_ARVALID      <= '0';
                 M_AXI_RREADY       <= '0';
+                read_last          <= '0';
                 update_read_data   <= false;
                 update_read_addr   <= false;
                 update_read_result <= false;
@@ -124,6 +125,7 @@ BEGIN
                 read_complete      <= '0';
                 M_AXI_ARVALID      <= '0';
                 M_AXI_RREADY       <= '0';
+                read_last          <= '0';
                 update_read_data   <= false;
                 update_read_addr   <= true;
                 update_read_result <= false;
@@ -131,6 +133,7 @@ BEGIN
                 read_complete      <= '0';
                 M_AXI_ARVALID      <= '1';
                 M_AXI_RREADY       <= '0';
+                read_last          <= '0';
                 update_read_data   <= true;
                 update_read_addr   <= false;
                 update_read_result <= true;
@@ -138,20 +141,21 @@ BEGIN
                 read_complete      <= '0';
                 M_AXI_ARVALID      <= '0';
                 M_AXI_RREADY       <= '1';
+                read_last          <= '0';
                 update_read_data   <= true;
                 update_read_addr   <= false;
                 update_read_result <= true;
             WHEN wait_for_rvalid_fall =>
-                read_complete      <= '0';
+                read_complete      <= '1';
                 M_AXI_ARVALID      <= '0';
                 M_AXI_RREADY       <= '0';
+                read_last          <= M_AXI_RLAST;
                 update_read_data   <= true;
                 update_read_addr   <= false;
                 update_read_result <= true;
         END CASE;
 
         M_AXI_ARLEN <= read_len;
-        read_last   <= M_AXI_RLAST;
 
     END PROCESS;
 END Behavioral;
