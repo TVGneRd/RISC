@@ -4,10 +4,10 @@ USE IEEE.NUMERIC_STD.ALL;
 
 USE work.riscv_opcodes_pkg.ALL;
 
-ENTITY tb_alu IS
-END tb_alu;
+ENTITY alu_tb IS
+END alu_tb;
 
-ARCHITECTURE behavior OF tb_alu IS
+ARCHITECTURE behavior OF alu_tb IS
     -- Компонент ALU
     COMPONENT alu
         PORT (
