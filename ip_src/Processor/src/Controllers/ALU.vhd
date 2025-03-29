@@ -21,8 +21,6 @@ ENTITY ALU IS
     operand_1 : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
     operand_2 : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
 
-    immediate : IN STD_LOGIC_VECTOR(31 DOWNTO 0); -- Для I-типа, непосредственное значение
-
     result : OUT STD_LOGIC_VECTOR(31 DOWNTO 0); -- Результат
     zero   : OUT STD_LOGIC;                     -- Флаг нуля (для ветвлений)
     sign   : OUT STD_LOGIC;                     -- Флаг знака (для сравнений)
