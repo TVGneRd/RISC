@@ -65,21 +65,21 @@ BEGIN
     IF rst = '1' THEN
       readyFlag <= '0';
     ELSIF cur_state = proc_state AND readyFlag = '0' THEN
-      IF (opcode = OP_ADD OR opcode = OP_SUB OR
-        opcode = OP_AND OR opcode = OP_OR OR
-        opcode = OP_XOR OR opcode = OP_SLL OR
-        opcode = OP_SRL OR opcode = OP_SRA OR
-        opcode = OP_SLT OR opcode = OP_SLTU) THEN
-        op2_final <= operand_2; -- R-тип
-      ELSE
-        op2_final <= immediate; -- I-тип
-      END IF;
+      -- IF (opcode = OP_ADD OR opcode = OP_SUB OR
+      --   opcode = OP_AND OR opcode = OP_OR OR
+      --   opcode = OP_XOR OR opcode = OP_SLL OR
+      --   opcode = OP_SRL OR opcode = OP_SRA OR
+      --   opcode = OP_SLT OR opcode = OP_SLTU) THEN
+      --   op2_final <= operand_2; -- R-тип
+      -- ELSE
+      --   op2_final <= immediate; -- I-тип
+      -- END IF;
 
       -- Приведение типов для удобства
       op1_signed   <= SIGNED(operand_1);
-      op2_signed   <= SIGNED(op2_final);
+      op2_signed   <= SIGNED(operand_2);
       op1_unsigned <= UNSIGNED(operand_1);
-      op2_unsigned <= UNSIGNED(op2_final);
+      op2_unsigned <= UNSIGNED(operand_2);
       shift_amount <= to_integer(UNSIGNED(operand_2(4 DOWNTO 0))); -- Для сдвигов (младшие 5 бит)
 
       CASE opcode IS
