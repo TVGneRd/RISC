@@ -37,13 +37,13 @@ ARCHITECTURE behavioral OF ALU IS
   SIGNAL next_state : m_state_type := rst_state;
 
   -- Внутренние сигналы
-  SIGNAL res          : STD_LOGIC_VECTOR(31 DOWNTO 0); -- Временный результат
-  SIGNAL op1_signed   : SIGNED(31 DOWNTO 0);           -- Операнд 1 как знаковое число
-  SIGNAL op2_signed   : SIGNED(31 DOWNTO 0);           -- Операнд 2 как знаковое число
-  SIGNAL op1_unsigned : UNSIGNED(31 DOWNTO 0);         -- Операнд 1 как беззнаковое число
-  SIGNAL op2_unsigned : UNSIGNED(31 DOWNTO 0);         -- Операнд 2 как беззнаковое число
-  SIGNAL op2_final    : STD_LOGIC_VECTOR(31 DOWNTO 0); -- Итоговый второй операнд
-  SIGNAL shift_amount : INTEGER RANGE 0 TO 31;         -- Величина сдвига
+  SIGNAL res          : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Временный результат
+  SIGNAL op1_signed   : SIGNED(31 DOWNTO 0);                              -- Операнд 1 как знаковое число
+  SIGNAL op2_signed   : SIGNED(31 DOWNTO 0);                              -- Операнд 2 как знаковое число
+  SIGNAL op1_unsigned : UNSIGNED(31 DOWNTO 0);                            -- Операнд 1 как беззнаковое число
+  SIGNAL op2_unsigned : UNSIGNED(31 DOWNTO 0);                            -- Операнд 2 как беззнаковое число
+  SIGNAL op2_final    : STD_LOGIC_VECTOR(31 DOWNTO 0);                    -- Итоговый второй операнд
+  SIGNAL shift_amount : INTEGER RANGE 0 TO 31;                            -- Величина сдвига
 
   SIGNAL readyFlag : STD_LOGIC;
 
@@ -182,15 +182,17 @@ BEGIN
   BEGIN
     CASE cur_state IS
       WHEN rst_state =>
-        ready  <= '0';
-        result <= (OTHERS => '0');
-        zero   <= '0';
-        sign   <= '0';
+        ready     <= '0';
+        readyFlag <= '0';
+        result    <= (OTHERS => '0');
+        zero      <= '0';
+        sign      <= '0';
       WHEN idle =>
-        ready  <= '1';
-        result <= (OTHERS => '0');
-        zero   <= '0';
-        sign   <= '0';
+        ready     <= '1';
+        readyFlag <= '0';
+        result    <= (OTHERS => '0');
+        zero      <= '0';
+        sign      <= '0';
       WHEN accept_state =>
         ready <= '0';
       WHEN proc_state =>
