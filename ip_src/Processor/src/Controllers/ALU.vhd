@@ -37,17 +37,18 @@ ARCHITECTURE behavioral OF ALU IS
   SIGNAL next_state : m_state_type := rst_state;
 
   -- Внутренние сигналы
-  SIGNAL res          : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Временный результат
-  SIGNAL op1_signed   : SIGNED(31 DOWNTO 0);                              -- Операнд 1 как знаковое число
-  SIGNAL op2_signed   : SIGNED(31 DOWNTO 0);                              -- Операнд 2 как знаковое число
-  SIGNAL op1_unsigned : UNSIGNED(31 DOWNTO 0);                            -- Операнд 1 как беззнаковое число
-  SIGNAL op2_unsigned : UNSIGNED(31 DOWNTO 0);                            -- Операнд 2 как беззнаковое число
-  SIGNAL op2_final    : STD_LOGIC_VECTOR(31 DOWNTO 0);                    -- Итоговый второй операнд
-  SIGNAL shift_amount : INTEGER RANGE 0 TO 31;                            -- Величина сдвига
+  SIGNAL res : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Временный результат
+  -- SIGNAL op1_signed   : SIGNED(31 DOWNTO 0)           := (OTHERS => '0'); -- Операнд 1 как знаковое число
+  -- SIGNAL op2_signed   : SIGNED(31 DOWNTO 0)           := (OTHERS => '0'); -- Операнд 2 как знаковое число
+  -- SIGNAL op1_unsigned : UNSIGNED(31 DOWNTO 0)         := (OTHERS => '0'); -- Операнд 1 как беззнаковое число
+  -- SIGNAL op2_unsigned : UNSIGNED(31 DOWNTO 0)         := (OTHERS => '0'); -- Операнд 2 как беззнаковое число
+  -- SIGNAL op2_final    : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Итоговый второй операнд
+  -- SIGNAL shift_amount : INTEGER RANGE 0 TO 31         := 0;               -- Величина сдвига
 
-  SIGNAL readyFlag : STD_LOGIC;
+  SIGNAL readyFlag : STD_LOGIC := '0';
 
 BEGIN
+  result <= res;
   state_transition : PROCESS (refclk, rst)
   BEGIN
     IF rst = '1' THEN
@@ -58,11 +59,20 @@ BEGIN
   END PROCESS;
 
   -- Основной процесс ALU
-  processing : PROCESS (rst, cur_state)
+  processing : PROCESS (rst, cur_state, refclk)
+    VARIABLE op1_signed   : SIGNED(31 DOWNTO 0)   := (OTHERS => '0');
+    VARIABLE op2_signed   : SIGNED(31 DOWNTO 0)   := (OTHERS => '0');
+    VARIABLE op1_unsigned : UNSIGNED(31 DOWNTO 0) := (OTHERS => '0');
+    VARIABLE op2_unsigned : UNSIGNED(31 DOWNTO 0) := (OTHERS => '0');
+    VARIABLE shift_amount : INTEGER RANGE 0 TO 31 := 0;
   BEGIN
     IF rst = '1' THEN
       readyFlag <= '0';
-    ELSIF cur_state = proc_state AND readyFlag = '0' THEN
+      res       <= (OTHERS => '0');
+    ELSIF cur_state = idle OR cur_state = accept_state THEN
+      readyFlag <= '0';
+      res       <= (OTHERS => '0');
+    ELSIF cur_state = proc_state AND readyFlag = '0' AND rising_edge(refclk) THEN
       -- IF (opcode = OP_ADD OR opcode = OP_SUB OR
       --   opcode = OP_AND OR opcode = OP_OR OR
       --   opcode = OP_XOR OR opcode = OP_SLL OR
@@ -74,11 +84,11 @@ BEGIN
       -- END IF;
 
       -- Приведение типов для удобства
-      op1_signed   <= SIGNED(operand_1);
-      op2_signed   <= SIGNED(operand_2);
-      op1_unsigned <= UNSIGNED(operand_1);
-      op2_unsigned <= UNSIGNED(operand_2);
-      shift_amount <= to_integer(UNSIGNED(operand_2(4 DOWNTO 0))); -- Для сдвигов (младшие 5 бит)
+      op1_signed   := SIGNED(operand_1);
+      op2_signed   := SIGNED(operand_2);
+      op1_unsigned := UNSIGNED(operand_1);
+      op2_unsigned := UNSIGNED(operand_2);
+      shift_amount := to_integer(UNSIGNED(operand_2(4 DOWNTO 0))); -- Для сдвигов (младшие 5 бит)
 
       CASE opcode IS
           -- Сложение
@@ -137,20 +147,18 @@ BEGIN
           res <= (OTHERS => '0');
       END CASE;
       readyFlag <= '1';
+    ELSIF cur_state = transmitting THEN
+      readyFlag <= '1';
     END IF;
 
   END PROCESS;
 
-  state_decider : PROCESS (cur_state, valid)
+  state_decider : PROCESS (cur_state, valid, readyFlag)
   BEGIN
     next_state <= cur_state;
     CASE cur_state IS
       WHEN rst_state =>
-        IF rst = '0' THEN
-          next_state <= idle;
-        ELSE
-          next_state <= next_state;
-        END IF;
+        next_state <= idle;
       WHEN idle =>
         IF valid = '1' THEN
           next_state <= accept_state;
@@ -165,6 +173,7 @@ BEGIN
         END IF;
       WHEN proc_state =>
         IF readyFlag = '1' THEN
+          --IF 1 = 0 THEN
           next_state <= transmitting;
         ELSE
           next_state <= next_state;
@@ -182,27 +191,31 @@ BEGIN
   BEGIN
     CASE cur_state IS
       WHEN rst_state =>
-        ready     <= '0';
-        readyFlag <= '0';
-        result    <= (OTHERS => '0');
-        zero      <= '0';
-        sign      <= '0';
+        ready <= '0';
+        --readyFlag <= '0';
+        --result    <= (OTHERS => '0');
+        zero <= '0';
+        sign <= '0';
       WHEN idle =>
-        ready     <= '1';
-        readyFlag <= '0';
-        result    <= (OTHERS => '0');
-        zero      <= '0';
-        sign      <= '0';
+        ready <= '1';
+        --readyFlag <= '0';
+        --result    <= (OTHERS => '0');
+        --res <= (OTHERS => '0');
+        zero <= '0';
+        sign <= '0';
       WHEN accept_state =>
         ready <= '0';
       WHEN proc_state =>
         IF readyFlag = '1' THEN
+          --IF 1 = 0 THEN
           ready <= '1';
+        ELSE
+          ready <= '0';
         END IF;
       WHEN transmitting =>
         -- Выходы
-        ready  <= '1';
-        result <= res;
+        ready <= '1';
+        --result <= res;
 
         IF res = (res'RANGE => '0') THEN
           zero <= '1';
