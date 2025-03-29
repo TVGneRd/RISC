@@ -21,21 +21,21 @@ USE IEEE.numeric_std.ALL;--! for the signed, unsigned types and arithmetic ops
 ENTITY ProgramMemory_TOP IS
   PORT (
     refclk : IN STD_LOGIC; --! reference clock expect 250Mhz
-    rst    : IN STD_LOGIC;  --! sync active high reset. sync -> refclk
+    rst    : IN STD_LOGIC; --! sync active high reset. sync -> refclk
 
     -- AXI-4 MM Ports
     -- address channel signals
-    M_AXI_ARADDR  : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-    M_AXI_ARLEN   : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-    M_AXI_ARVALID : IN STD_LOGIC;
-    M_AXI_ARREADY : OUT STD_LOGIC;
+    S_AXI_ARADDR  : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
+    S_AXI_ARLEN   : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+    S_AXI_ARVALID : IN STD_LOGIC;
+    S_AXI_ARREADY : OUT STD_LOGIC;
 
     -- data channel signals
-    M_AXI_RDATA  : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
-    M_AXI_RRESP  : OUT STD_LOGIC_VECTOR(1 DOWNTO 0);
-    M_AXI_RLAST  : OUT STD_LOGIC;
-    M_AXI_RVALID : OUT STD_LOGIC;
-    M_AXI_RREADY : IN STD_LOGIC
+    S_AXI_RDATA  : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+    S_AXI_RRESP  : OUT STD_LOGIC_VECTOR(1 DOWNTO 0);
+    S_AXI_RLAST  : OUT STD_LOGIC;
+    S_AXI_RVALID : OUT STD_LOGIC;
+    S_AXI_RREADY : IN STD_LOGIC
   );
 
 END ENTITY ProgramMemory_TOP;
@@ -51,17 +51,27 @@ ARCHITECTURE rtl OF ProgramMemory_TOP IS
   );
 
   SIGNAL current_state, next_state : state_type;
-  SIGNAL addr_reg                  : STD_LOGIC_VECTOR(11 DOWNTO 0);
-  SIGNAL len_counter               : STD_LOGIC_VECTOR(7 DOWNTO 0);
+  SIGNAL addr_reg                  : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL len_counter               : STD_LOGIC_VECTOR(7 DOWNTO 0)  := (OTHERS => '0');
+  SIGNAL rdy                       : STD_LOGIC                     := '0';
+  SIGNAL val                       : STD_LOGIC                     := '0';
+  SIGNAL rl                        : STD_LOGIC                     := '0';
 
-  TYPE memory_type IS ARRAY (0 TO 511) OF STD_LOGIC_VECTOR(31 DOWNTO 0);
+  TYPE memory_type IS ARRAY (0 TO 511) OF STD_LOGIC_VECTOR(7 DOWNTO 0);
   SIGNAL memory : memory_type := (
     -- команды
+
+    x"01",
+    x"02",
+    x"03",
+    x"04",
+    x"05",
+    x"06",
     OTHERS => (OTHERS => '0')
   );
 
-  CONSTANT MIN_ADDR : STD_LOGIC_VECTOR(11 DOWNTO 0) := x"00";
-  CONSTANT MAX_ADDR : STD_LOGIC_VECTOR(11 DOWNTO 0) := x"FFF";
+  CONSTANT MIN_ADDR : STD_LOGIC_VECTOR(11 DOWNTO 0) := "000000000000";
+  CONSTANT MAX_ADDR : STD_LOGIC_VECTOR(11 DOWNTO 0) := x"1FF";
 
 BEGIN
 
@@ -76,81 +86,98 @@ BEGIN
     END IF;
   END PROCESS;
 
-  state : PROCESS (current_state, M_AXI_ARVALID, M_AXI_RREADY, len_counter)
+  state : PROCESS (current_state, S_AXI_ARVALID, S_AXI_RREADY, len_counter, val)
   BEGIN
-    -- Значения по умолчанию
-    M_AXI_ARREADY <= '0';
-    M_AXI_RVALID  <= '0';
-    M_AXI_RLAST   <= '0';
-
     CASE current_state IS
       WHEN RESET =>
         next_state <= IDLE;
 
       WHEN IDLE =>
-        IF M_AXI_ARVALID = '1' THEN
+        IF S_AXI_ARVALID = '1' THEN
           next_state <= PROCESS_ADDRESS;
         ELSE
           next_state <= IDLE;
         END IF;
 
       WHEN PROCESS_ADDRESS =>
-        IF M_AXI_ARVALID = '1' THEN
-          next_state <= WAITING_DATA;
-        ELSE
-          next_state <= PROCESS_ADDRESS;
-        END IF;
+        next_state <= WAITING_DATA;
 
       WHEN WAITING_DATA =>
+        IF val = '1' THEN
           next_state <= SEND_DATA;
-      WHEN SEND_DATA =>
-        IF M_AXI_RREADY = '1' AND unsigned(len_counter) = 0  THEN
-          next_state <= IDLE;
         ELSE
-          IF M_AXI_RREADY = '0'  THEN
-            next_state <= CHECK_LEN;
-          END IF;
+          next_state <= WAITING_DATA;
         END IF;
 
-        WHEN CHECK_LEN =>
-          IF M_AXI_RREADY = '1' AND unsigned(len_counter) > 0 THEN
-            next_state <= SEND_DATA;
-          ELSE
-            M_AXI_RRESP <= "00";
-            next_state <= IDLE;
-          END IF;
-
-        WHEN OTHERS =>
+      WHEN SEND_DATA =>
+        IF S_AXI_RREADY = '1' AND unsigned(len_counter) = 0 THEN
           next_state <= IDLE;
-        END CASE;
-    END PROCESS;
+        ELSIF S_AXI_RREADY = '0' THEN
+          next_state <= CHECK_LEN;
+        END IF;
 
-    action : PROCESS (current_state, M_AXI_ARVALID, M_AXI_RREADY, len_counter)
-    BEGIN
+      WHEN CHECK_LEN =>
+        IF unsigned(len_counter) = 0 THEN
+          next_state <= IDLE;
+        ELSIF S_AXI_RREADY = '1' THEN
+          next_state <= SEND_DATA;
+        END IF;
 
-      CASE current_state IS
-        WHEN PROCESS_ADDRESS =>
-          M_AXI_ARREADY <= '1';
+      WHEN OTHERS =>
+        next_state <= IDLE;
+    END CASE;
+  END PROCESS;
 
-        WHEN WAITING_DATA => -- исправить
-          M_AXI_RVALID <= '1'; 
-          addr_reg    <= M_AXI_ARADDR;
-          len_counter <= M_AXI_ARLEN;
+  output_process : PROCESS (current_state)
+  BEGIN
+    CASE current_state IS
+      WHEN IDLE =>
+        S_AXI_ARREADY <= '1';
+        S_AXI_RVALID  <= '0';
+        S_AXI_RLAST   <= '0';
 
-          IF addr_reg >= MIN_ADDR AND addr_reg <= MAX_ADDR THEN
-            M_AXI_RVALID                         <= '1';
+      WHEN PROCESS_ADDRESS =>
+        S_AXI_ARREADY <= '0';
+        addr_reg      <= S_AXI_ARADDR;
+        len_counter   <= S_AXI_ARLEN;
+
+      WHEN WAITING_DATA =>
+        S_AXI_ARREADY                                                      <= '1';
+        IF unsigned(addr_reg) >= unsigned(MIN_ADDR) AND unsigned(addr_reg) <= unsigned(MAX_ADDR) THEN
+          val                                                                <= '1';
+          S_AXI_RRESP                                                        <= "00";
+        ELSE
+          val         <= '1';
+          len_counter <= (OTHERS => '0');
+          S_AXI_RRESP <= "11";
+        END IF;
+
+      WHEN SEND_DATA =>
+        S_AXI_RVALID          <= '1';
+        IF unsigned(addr_reg) <= unsigned(MAX_ADDR) THEN
+          S_AXI_RDATA           <= memory(to_integer(unsigned(addr_reg)));
+          IF unsigned(len_counter) = 1 THEN
+            S_AXI_RLAST <= '1';
+          ELSE
+            S_AXI_RLAST <= '0';
           END IF;
+          addr_reg    <= STD_LOGIC_VECTOR(unsigned(addr_reg) + 1);
+          len_counter <= STD_LOGIC_VECTOR(unsigned(len_counter) - 1);
+        ELSE
+          S_AXI_RRESP <= "11";
+        END IF;
 
-        WHEN SEND_DATA =>
-          M_AXI_RVALID <= '1';
-          M_AXI_RDATA <= memory(to_integer(unsigned(addr_reg)));
-          addr_reg <= std_logic_vector(unsigned(addr_reg) + 1);
-          len_counter <= std_logic_vector(unsigned(len_counter) - 1);
-        WHEN CHECK_LEN =>
-        -- !!! написать логику M_AXI_RLAST = '1'
-        M_AXI_RLAST <= '1';
-      END CASE;
+      WHEN CHECK_LEN =>
+        S_AXI_RVALID <= '0';
+        val          <= '0';
 
-    END PROCESS;
+      WHEN OTHERS =>
+        S_AXI_ARREADY <= '0';
+        S_AXI_RVALID  <= '0';
+        S_AXI_RLAST   <= '0';
+        S_AXI_RDATA   <= (OTHERS => '0');
+        S_AXI_RRESP   <= (OTHERS => '0');
+    END CASE;
+  END PROCESS;
 
-  END ARCHITECTURE rtl;
+END ARCHITECTURE rtl;
