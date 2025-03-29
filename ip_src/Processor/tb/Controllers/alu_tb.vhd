@@ -2,6 +2,8 @@ LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
 USE IEEE.NUMERIC_STD.ALL;
 
+USE work.riscv_opcodes_pkg.ALL;
+
 ENTITY tb_alu IS
 END tb_alu;
 
@@ -14,7 +16,7 @@ ARCHITECTURE behavior OF tb_alu IS
             valid     : IN STD_LOGIC;
             operand_1 : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
             operand_2 : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
-            operation : IN STD_LOGIC_VECTOR(4 DOWNTO 0);
+            operation : IN riscv_opcode_t;
             ready     : OUT STD_LOGIC;
             result    : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
             zero      : OUT STD_LOGIC;
@@ -28,7 +30,7 @@ ARCHITECTURE behavior OF tb_alu IS
     SIGNAL valid     : STD_LOGIC                     := '0';
     SIGNAL operand_1 : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
     SIGNAL operand_2 : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
-    SIGNAL operation : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0');
+    SIGNAL operation : riscv_opcode_t                := OP_INVALID;
     SIGNAL ready     : STD_LOGIC;
     SIGNAL result    : STD_LOGIC_VECTOR(31 DOWNTO 0);
     SIGNAL zero      : STD_LOGIC;
@@ -67,7 +69,7 @@ BEGIN
         valid     <= '1';
         operand_1 <= X"80000000"; -- -2^31
         operand_2 <= X"00000002"; -- сдвиг на 2
-        operation <= "00101";     -- OP_SRA
+        operation <= OP_SRA;      -- OP_SRA
         WAIT FOR clk_period * 5;
         ASSERT result = X"E0000000" -- Ожидаем -2^31 >> 2
         REPORT "SRA failed!" SEVERITY ERROR;
@@ -78,7 +80,7 @@ BEGIN
         valid     <= '1';
         operand_1 <= X"FFFFFFFE"; -- -2
         operand_2 <= X"00000001"; -- 1
-        operation <= "00010";     -- OP_SLT
+        operation <= OP_SLT;      -- OP_SLT
         WAIT FOR clk_period * 5;
         ASSERT result = X"00000001" -- Ожидаем 1 (true, -2 < 1)
         REPORT "SLT failed!" SEVERITY ERROR;
@@ -89,7 +91,7 @@ BEGIN
         valid     <= '1';
         operand_1 <= X"FFFFFFFE"; -- большое положительное
         operand_2 <= X"00000001"; -- 1
-        operation <= "00011";     -- OP_SLTU
+        operation <= OP_SLTU;     -- OP_SLTU
         WAIT FOR clk_period * 5;
         ASSERT result = X"00000000" -- Ожидаем 0 (false, 2^32-2 > 1)
         REPORT "SLTU failed!" SEVERITY ERROR;
@@ -99,7 +101,7 @@ BEGIN
         -- Тест 4: LUI
         valid     <= '1';
         operand_1 <= X"12345000"; -- Загружаем 0x12345 << 12
-        operation <= "00111";     -- OP_LUI
+        operation <= OP_LUI;      -- OP_LUI
         WAIT FOR clk_period * 5;
         ASSERT result = X"12345000" -- Ожидаем тот же верхний бит
         REPORT "LUI failed!" SEVERITY ERROR;
