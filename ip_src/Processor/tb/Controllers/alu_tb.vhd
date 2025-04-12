@@ -5,6 +5,14 @@ USE IEEE.NUMERIC_STD.ALL;
 USE work.riscv_opcodes_pkg.ALL;
 
 ENTITY alu_tb IS
+    GENERIC (
+        EDGE_CLK : TIME := 2 ns
+    );
+    PORT (
+        clk            : IN STD_LOGIC;
+        rst            : IN STD_LOGIC;
+        test_completed : OUT STD_LOGIC
+    );
 END alu_tb;
 
 ARCHITECTURE behavior OF alu_tb IS
@@ -25,8 +33,8 @@ ARCHITECTURE behavior OF alu_tb IS
     END COMPONENT;
 
     -- Сигналы
-    SIGNAL refclk    : STD_LOGIC                     := '0';
-    SIGNAL rst       : STD_LOGIC                     := '1';
+    --SIGNAL refclk    : STD_LOGIC                     := '0';
+    --SIGNAL rst       : STD_LOGIC                     := '1';
     SIGNAL valid     : STD_LOGIC                     := '0';
     SIGNAL operand_1 : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
     SIGNAL operand_2 : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
@@ -42,91 +50,92 @@ ARCHITECTURE behavior OF alu_tb IS
 BEGIN
     -- Подключаем ALU
     uut : alu PORT MAP(
-        refclk => refclk, rst => rst, valid => valid,
+        refclk => clk, rst => rst,
+        valid => valid,
         operand_1 => operand_1, operand_2 => operand_2, opcode => opcode,
         ready => ready, result => result, zero => zero, sign => sign
     );
 
     -- Генерация clock
-    clk_process : PROCESS
-    BEGIN
-        refclk <= '0';
-        WAIT FOR clk_period/2;
-        refclk <= '1';
-        WAIT FOR clk_period/2;
-    END PROCESS;
+    -- clk_process : PROCESS
+    -- BEGIN
+    --     refclk <= '0';
+    --     WAIT FOR EDGE_CLK/2;
+    --     refclk <= '1';
+    --     WAIT FOR EDGE_CLK/2;
+    -- END PROCESS;
 
     -- [Предыдущая часть кода до stim_proc остается без изменений]
 
     stim_proc : PROCESS
     BEGIN
         -- Сброс
-        WAIT FOR 20 ns;
-        rst <= '0';
-        WAIT FOR 20 ns;
+        -- WAIT FOR 20 ns;
+        -- rst <= '0';
+        -- WAIT FOR 20 ns;
 
         -- Тест 1: OR (ИЛИ)
         operand_1 <= X"80000000"; -- -2^31
         operand_2 <= X"00000002"; -- сдвиг на 2
-        opcode    <= OP_OR;      -- OP_SRA
+        opcode    <= OP_OR;       -- OP_SRA
         valid     <= '1';
-        WAIT UNTIL ready = '0' FOR clk_period * 9;
-        WAIT UNTIL ready = '1' FOR clk_period * 9;
-        --WAIT FOR clk_period * 8;
-        --WAIT FOR clk_period * 3;
+        WAIT UNTIL ready = '0' FOR EDGE_CLK * 9;
+        WAIT UNTIL ready = '1' FOR EDGE_CLK * 9;
+        --WAIT FOR EDGE_CLK * 8;
+        --WAIT FOR EDGE_CLK * 3;
         ASSERT result = X"80000002" -- Ожидаем -2^31 >> 2
         REPORT "OR failed!" SEVERITY ERROR;
         valid <= '0';
-        WAIT FOR clk_period * 1;
+        WAIT FOR EDGE_CLK * 1;
 
         -- Тест 2: SLT (сравнение со знаком)
         valid     <= '1';
         operand_1 <= X"FFFFFFFE"; -- -2
         operand_2 <= X"00000001"; -- 1
         opcode    <= OP_SLT;      -- OP_SLT
-        WAIT UNTIL ready = '0' FOR clk_period * 9;
-        WAIT UNTIL ready = '1' FOR clk_period * 9;
+        WAIT UNTIL ready = '0' FOR EDGE_CLK * 9;
+        WAIT UNTIL ready = '1' FOR EDGE_CLK * 9;
         ASSERT result = X"00000001" -- Ожидаем 1 (true, -2 < 1)
         REPORT "SLT failed!" SEVERITY ERROR;
         valid <= '0';
-        WAIT FOR clk_period * 1;
+        WAIT FOR EDGE_CLK * 1;
 
         -- Тест 3: SLTU (сравнение без знака)
         valid     <= '1';
         operand_1 <= X"FFFFFFFE"; -- большое положительное
         operand_2 <= X"00000001"; -- 1
         opcode    <= OP_SLTU;     -- OP_SLTU
-        WAIT UNTIL ready = '0' FOR clk_period * 9;
-        WAIT UNTIL ready = '1' FOR clk_period * 9;
+        WAIT UNTIL ready = '0' FOR EDGE_CLK * 9;
+        WAIT UNTIL ready = '1' FOR EDGE_CLK * 9;
         ASSERT result = X"00000000" -- Ожидаем 0 (false, 2^32-2 > 1)
         REPORT "SLTU failed!" SEVERITY ERROR;
         valid <= '0';
-        WAIT FOR clk_period * 1;
+        WAIT FOR EDGE_CLK * 1;
 
         -- Тест 4: LUI
         valid     <= '1';
         operand_1 <= X"12345000"; -- Загружаем 0x12345 << 12
         opcode    <= OP_LUI;      -- OP_LUI
-        WAIT UNTIL ready = '0' FOR clk_period * 9;
-        WAIT UNTIL ready = '1' FOR clk_period * 9;
+        WAIT UNTIL ready = '0' FOR EDGE_CLK * 9;
+        WAIT UNTIL ready = '1' FOR EDGE_CLK * 9;
         ASSERT result = X"12345000" -- Ожидаем тот же верхний бит
         REPORT "LUI failed!" SEVERITY ERROR;
         valid <= '0';
-        WAIT FOR clk_period * 1;
-        
+        WAIT FOR EDGE_CLK * 1;
+
         --Тест 5 ADD (Сложение)
         valid     <= '1';
         operand_1 <= X"00001000"; -- большое положительное
         operand_2 <= X"00001010"; -- 1
-        opcode    <= OP_ADD;     -- OP_SLTU
-        WAIT UNTIL ready = '0' FOR clk_period * 9;
-        WAIT UNTIL ready = '1' FOR clk_period * 9;
+        opcode    <= OP_ADD;      -- OP_SLTU
+        WAIT UNTIL ready = '0' FOR EDGE_CLK * 9;
+        WAIT UNTIL ready = '1' FOR EDGE_CLK * 9;
         ASSERT result = X"00002010" -- Ожидаем 0 (false, 2^32-2 > 1)
         REPORT "ADD failed!" SEVERITY ERROR;
         valid <= '0';
-        WAIT FOR clk_period * 1;
-        
+        WAIT FOR EDGE_CLK * 1;
         -- Завершение
+        test_completed <= '1';
         REPORT "Simulation completed!" SEVERITY NOTE;
         WAIT;
     END PROCESS;
