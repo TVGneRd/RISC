@@ -14,12 +14,13 @@ ARCHITECTURE rtl OF Processor_TB IS
   SIGNAL test_completed : BOOLEAN   := FALSE;
 
   SIGNAL decoder_test_completed : STD_LOGIC := '0';
+  SIGNAL cache_test_completed   : STD_LOGIC := '0';
 
   SIGNAL M_AXI_ARADDR  : STD_LOGIC_VECTOR(11 DOWNTO 0);
   SIGNAL M_AXI_ARLEN   : STD_LOGIC_VECTOR(7 DOWNTO 0);
   SIGNAL M_AXI_ARVALID : STD_LOGIC;
   SIGNAL M_AXI_ARREADY : STD_LOGIC;
-  SIGNAL M_AXI_RDATA   : STD_LOGIC_VECTOR(31 DOWNTO 0);
+  SIGNAL M_AXI_RDATA   : STD_LOGIC_VECTOR(7 DOWNTO 0);
   SIGNAL M_AXI_RRESP   : STD_LOGIC_VECTOR(1 DOWNTO 0);
   SIGNAL M_AXI_RLAST   : STD_LOGIC;
   SIGNAL M_AXI_RVALID  : STD_LOGIC;
@@ -38,7 +39,7 @@ ARCHITECTURE rtl OF Processor_TB IS
       M_AXI_ARREADY : IN STD_LOGIC;
 
       -- Read data channel signals
-      M_AXI_RDATA  : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
+      M_AXI_RDATA  : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
       M_AXI_RRESP  : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
       M_AXI_RLAST  : IN STD_LOGIC;
       M_AXI_RVALID : IN STD_LOGIC;
@@ -48,6 +49,20 @@ ARCHITECTURE rtl OF Processor_TB IS
   END COMPONENT;
 
   COMPONENT tb_decoder IS
+    GENERIC (
+      EDGE_CLK : TIME := 2 ns
+    );
+    PORT (
+      clk            : IN STD_LOGIC;
+      rst            : IN STD_LOGIC;
+      test_completed : OUT STD_LOGIC
+    );
+  END COMPONENT;
+
+  COMPONENT cache_tb IS
+    GENERIC (
+      EDGE_CLK : TIME := 2 ns
+    );
     PORT (
       clk            : IN STD_LOGIC;
       rst            : IN STD_LOGIC;
@@ -74,12 +89,26 @@ BEGIN
     M_AXI_RREADY  => M_AXI_RREADY
   );
 
-  test_completed <= decoder_test_completed = '1';
+  test_completed <= decoder_test_completed = '1' AND cache_test_completed = '1';
 
-  tb_decoder_inst : tb_decoder PORT MAP(
+  tb_decoder_inst : tb_decoder
+  GENERIC MAP(
+    EDGE_CLK => EDGE_CLK
+  )
+  PORT MAP(
     clk            => refclk,
     rst            => rst,
     test_completed => decoder_test_completed
+  );
+
+  tb_cache_inst : cache_tb
+  GENERIC MAP(
+    EDGE_CLK => EDGE_CLK
+  )
+  PORT MAP(
+    clk            => refclk,
+    rst            => rst,
+    test_completed => cache_test_completed
   );
 
   test_clk_generator : PROCESS
@@ -88,13 +117,16 @@ BEGIN
       refclk <= NOT refclk;
       WAIT FOR EDGE_CLK;
     ELSE
+      REPORT "ALL TEST COMPLIED";
       WAIT;
     END IF;
   END PROCESS test_clk_generator;
 
   test_bench_main : PROCESS
   BEGIN
-    -- test_completed <= true AFTER 50 ns;
-     WAIT;
+    rst <= '1';
+    WAIT FOR 10 * EDGE_CLK;
+    rst <= '0';
+    WAIT;
   END PROCESS test_bench_main;
 END ARCHITECTURE rtl;

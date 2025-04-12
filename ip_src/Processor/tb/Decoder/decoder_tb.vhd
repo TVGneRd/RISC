@@ -5,6 +5,9 @@ USE work.riscv_opcodes_pkg.ALL;
 USE work.control_signals_pkg.ALL;
 
 ENTITY tb_decoder IS
+    GENERIC (
+        EDGE_CLK : TIME := 2 ns
+    );
     PORT (
         clk            : IN STD_LOGIC;
         rst            : IN STD_LOGIC;
@@ -34,9 +37,6 @@ ARCHITECTURE behavior OF tb_decoder IS
     SIGNAL rd_addr     : STD_LOGIC_VECTOR(4 DOWNTO 0);
     SIGNAL imm         : STD_LOGIC_VECTOR(31 DOWNTO 0);
     SIGNAL control     : control_signals_t;
-
-    -- Период тактового сигнала (250 МГц -> 4 нс)
-    CONSTANT CLK_PERIOD : TIME := 4 ns;
 
 BEGIN
     -- Экземпляр декодера
@@ -71,7 +71,9 @@ BEGIN
             test_name           : STRING
         ) IS
         BEGIN
-            WAIT FOR CLK_PERIOD; -- Ждём один такт для синхронизации
+            test_completed <= '0';
+
+            WAIT FOR EDGE_CLK; -- Ждём один такт для синхронизации
             ASSERT rs1_addr = expected_rs1_addr
             REPORT test_name & ": rs1_addr mismatch, expected "
                 SEVERITY ERROR;
@@ -298,7 +300,7 @@ BEGIN
         );
 
         -- Завершение теста
-        REPORT "Test completed";
+        REPORT "Decoder test completed";
         test_completed <= '1';
         WAIT;
     END PROCESS;
