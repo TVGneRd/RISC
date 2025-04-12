@@ -136,7 +136,7 @@ BEGIN
         WAIT FOR EDGE_CLK * 1;
         -- Завершение
         test_completed <= '1';
-        REPORT "Simulation completed!" SEVERITY NOTE;
+        REPORT "ALU test completed!" SEVERITY NOTE;
         WAIT;
     END PROCESS;
 

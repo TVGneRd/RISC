@@ -15,6 +15,7 @@ ARCHITECTURE rtl OF Processor_TB IS
 
   SIGNAL decoder_test_completed : STD_LOGIC := '0';
   SIGNAL cache_test_completed   : STD_LOGIC := '0';
+  SIGNAL alu_test_completed     : STD_LOGIC := '0';
 
   SIGNAL M_AXI_ARADDR  : STD_LOGIC_VECTOR(11 DOWNTO 0);
   SIGNAL M_AXI_ARLEN   : STD_LOGIC_VECTOR(7 DOWNTO 0);
@@ -70,6 +71,17 @@ ARCHITECTURE rtl OF Processor_TB IS
     );
   END COMPONENT;
 
+  COMPONENT alu_tb IS
+    GENERIC (
+      EDGE_CLK : TIME := 2 ns
+    );
+    PORT (
+      clk            : IN STD_LOGIC;
+      rst            : IN STD_LOGIC;
+      test_completed : OUT STD_LOGIC
+    );
+  END COMPONENT;
+
 BEGIN
 
   Processor_TOP_inst : Processor_TOP
@@ -89,7 +101,7 @@ BEGIN
     M_AXI_RREADY  => M_AXI_RREADY
   );
 
-  test_completed <= decoder_test_completed = '1' AND cache_test_completed = '1';
+  test_completed <= decoder_test_completed = '1' AND cache_test_completed = '1' AND alu_test_completed = '1';
 
   tb_decoder_inst : tb_decoder
   GENERIC MAP(
@@ -109,6 +121,16 @@ BEGIN
     clk            => refclk,
     rst            => rst,
     test_completed => cache_test_completed
+  );
+
+  tb_alu_inst : alu_tb
+  GENERIC MAP(
+    EDGE_CLK => EDGE_CLK
+  )
+  PORT MAP(
+    clk            => refclk,
+    rst            => rst,
+    test_completed => alu_test_completed
   );
 
   test_clk_generator : PROCESS
