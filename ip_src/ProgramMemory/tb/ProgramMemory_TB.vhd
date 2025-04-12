@@ -1,45 +1,167 @@
+LIBRARY IEEE;
+USE IEEE.std_logic_1164.ALL;
+USE IEEE.numeric_std.ALL;
 
-LIBRARY IEEE;--! standard library IEEE (Institute of Electrical and Electronics Engineers)
-USE IEEE.std_logic_1164.ALL;--! standard unresolved logic UX01ZWLH-
-USE IEEE.numeric_std.ALL;--! for the signed, unsigned types and arithmetic ops
+ENTITY ProgramMemory_TOP_tb IS
+END ENTITY ProgramMemory_TOP_tb;
 
-entity ProgramMemory_TB is
-  GENERIC (
-    EDGE_CLK : TIME := 2 ns
+ARCHITECTURE behavior OF ProgramMemory_TOP_tb IS
+  -- Component Declaration for the Unit Under Test (UUT)
+  COMPONENT ProgramMemory_TOP
+    PORT (
+      refclk        : IN STD_LOGIC;
+      rst           : IN STD_LOGIC;
+      S_AXI_ARADDR  : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
+      S_AXI_ARLEN   : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+      S_AXI_ARVALID : IN STD_LOGIC;
+      S_AXI_ARREADY : OUT STD_LOGIC;
+      S_AXI_RDATA   : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+      S_AXI_RRESP   : OUT STD_LOGIC_VECTOR(1 DOWNTO 0);
+      S_AXI_RLAST   : OUT STD_LOGIC;
+      S_AXI_RVALID  : OUT STD_LOGIC;
+      S_AXI_RREADY  : IN STD_LOGIC
+    );
+  END COMPONENT;
+
+  -- Inputs
+  SIGNAL refclk        : STD_LOGIC                     := '0';
+  SIGNAL rst           : STD_LOGIC                     := '1';
+  SIGNAL S_AXI_ARADDR  : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL S_AXI_ARLEN   : STD_LOGIC_VECTOR(7 DOWNTO 0)  := (OTHERS => '0');
+  SIGNAL S_AXI_ARVALID : STD_LOGIC                     := '0';
+  SIGNAL S_AXI_RREADY  : STD_LOGIC                     := '0';
+
+  -- Outputs
+  SIGNAL S_AXI_ARREADY : STD_LOGIC;
+  SIGNAL S_AXI_RDATA   : STD_LOGIC_VECTOR(7 DOWNTO 0);
+  SIGNAL S_AXI_RRESP   : STD_LOGIC_VECTOR(1 DOWNTO 0);
+  SIGNAL S_AXI_RLAST   : STD_LOGIC;
+  SIGNAL S_AXI_RVALID  : STD_LOGIC;
+
+  -- Clock period definitions
+  CONSTANT refclk_period : TIME := 4 ns; -- 250 MHz
+
+BEGIN
+  -- Instantiate the Unit Under Test (UUT)
+  uut : ProgramMemory_TOP PORT MAP(
+    refclk        => refclk,
+    rst           => rst,
+    S_AXI_ARADDR  => S_AXI_ARADDR,
+    S_AXI_ARLEN   => S_AXI_ARLEN,
+    S_AXI_ARVALID => S_AXI_ARVALID,
+    S_AXI_ARREADY => S_AXI_ARREADY,
+    S_AXI_RDATA   => S_AXI_RDATA,
+    S_AXI_RRESP   => S_AXI_RRESP,
+    S_AXI_RLAST   => S_AXI_RLAST,
+    S_AXI_RVALID  => S_AXI_RVALID,
+    S_AXI_RREADY  => S_AXI_RREADY
   );
-end entity ProgramMemory_TB;
-architecture rtl of ProgramMemory_TB is
-  SIGNAL rst   : STD_LOGIC := '0';
-  SIGNAL refclk : STD_LOGIC := '0';
-  SIGNAL test_completed : BOOLEAN := false;
-    COMPONENT ProgramMemory_TOP IS
-      PORT (
-        refclk : IN  STD_LOGIC;--! reference clock expect 250Mhz
-        rst    : IN  STD_LOGIC--! sync active high reset. sync -> refclk
-      );
-    END COMPONENT;
-begin
 
-  ProgramMemory_TOP_inst : ProgramMemory_TOP
-  PORT MAP
-  (
-    refclk => refclk,
-    rst    => rst
-  );
-
-  test_clk_generator : PROCESS
+  -- Clock process definitions
+  refclk_process : PROCESS
   BEGIN
-    IF NOT test_completed THEN
-      refclk <= NOT refclk;
-      WAIT for EDGE_CLK;
-    ELSE
-      WAIT;
-    END IF;
-  END PROCESS test_clk_generator;
+    refclk <= '0';
+    WAIT FOR refclk_period/2;
+    refclk <= '1';
+    WAIT FOR refclk_period/2;
+  END PROCESS;
 
-  test_bench_main : PROCESS
+  -- Stimulus process
+  stim_proc : PROCESS
   BEGIN
-    test_completed <= true AFTER 50 ns;
+    -- Hold reset state for a few cycles
+    rst <= '1';
+    WAIT FOR refclk_period * 5;
+    rst <= '0';
+    WAIT FOR refclk_period;
+
+    -- Test case 1: Single byte read
+    REPORT "Test case 1: Single byte read";
+    S_AXI_ARADDR  <= X"010"; -- Address 0x10
+    S_AXI_ARLEN   <= X"01";  -- Length 1 (ARLEN is number of transfers minus 1)
+    S_AXI_ARVALID <= '1';
+    WAIT UNTIL rising_edge(refclk) AND S_AXI_ARREADY = '1';
+    WAIT FOR refclk_period;
+    S_AXI_ARVALID <= '0';
+
+    -- Wait for data to be valid
+    WAIT UNTIL S_AXI_RVALID = '1';
+    S_AXI_RREADY <= '1';
+    WAIT FOR refclk_period;
+    ASSERT S_AXI_RLAST = '1' REPORT "RLAST should be high for single transfer" SEVERITY ERROR;
+    S_AXI_RREADY <= '0';
+    WAIT FOR refclk_period * 2;
+
+    -- Test case 2: Burst read of 4 bytes
+    REPORT "Test case 2: Burst read of 4 bytes";
+    S_AXI_ARADDR  <= X"020"; -- Address 0x20
+    S_AXI_ARLEN   <= X"04";  -- Length 4
+    S_AXI_ARVALID <= '1';
+    WAIT UNTIL rising_edge(refclk) AND S_AXI_ARREADY = '1';
+    WAIT FOR refclk_period;
+    S_AXI_ARVALID <= '0';
+
+    -- Read all 4 bytes
+    FOR i IN 0 TO 3 LOOP
+      WAIT UNTIL rising_edge(refclk) AND S_AXI_RVALID = '1';
+      S_AXI_RREADY <= '1';
+      WAIT FOR refclk_period;
+      IF i = 3 THEN
+        ASSERT S_AXI_RLAST = '1' REPORT "RLAST should be high for last transfer" SEVERITY ERROR;
+      ELSE
+        ASSERT S_AXI_RLAST = '0' REPORT "RLAST should be low for non-last transfers" SEVERITY ERROR;
+      END IF;
+      S_AXI_RREADY <= '0';
+      WAIT FOR refclk_period;
+    END LOOP;
+
+    -- Test case 3: Test backpressure (slave not ready)
+    REPORT "Test case 3: Test backpressure";
+    S_AXI_ARADDR  <= X"030"; -- Address 0x30
+    S_AXI_ARLEN   <= X"03";  -- Length 3
+    S_AXI_ARVALID <= '1';
+    WAIT UNTIL rising_edge(refclk) AND S_AXI_ARREADY = '1';
+    WAIT FOR refclk_period;
+    S_AXI_ARVALID <= '0';
+
+    -- First byte
+    WAIT UNTIL rising_edge(refclk) AND S_AXI_RVALID = '1';
+    S_AXI_RREADY <= '1';
+    WAIT FOR refclk_period;
+    S_AXI_RREADY <= '0';
+
+    -- Second byte - don't accept immediately
+    WAIT UNTIL rising_edge(refclk) AND S_AXI_RVALID = '1';
+    WAIT FOR refclk_period * 2;
+    S_AXI_RREADY <= '1';
+    WAIT FOR refclk_period;
+    S_AXI_RREADY <= '0';
+
+    -- Third byte
+    WAIT UNTIL rising_edge(refclk) AND S_AXI_RVALID = '1';
+    S_AXI_RREADY <= '1';
+    WAIT FOR refclk_period;
+    ASSERT S_AXI_RLAST = '1' REPORT "RLAST should be high for last transfer" SEVERITY ERROR;
+    S_AXI_RREADY <= '0';
+
+    -- Test case 4: Invalid address
+    REPORT "Test case 4: Invalid address";
+    S_AXI_ARADDR  <= X"FFF"; -- Invalid address
+    S_AXI_ARLEN   <= X"01";  -- Length 1
+    S_AXI_ARVALID <= '1';
+    WAIT UNTIL rising_edge(refclk) AND S_AXI_ARREADY = '1';
+    WAIT FOR refclk_period;
+    S_AXI_ARVALID <= '0';
+
+    WAIT UNTIL rising_edge(refclk) AND S_AXI_RVALID = '1';
+    S_AXI_RREADY <= '1';
+    WAIT FOR refclk_period;
+    ASSERT S_AXI_RRESP = "11" REPORT "Should get error response for invalid address" SEVERITY ERROR;
+    S_AXI_RREADY <= '0';
+
+    WAIT FOR refclk_period * 5;
+    REPORT "All tests completed";
     WAIT;
-  END PROCESS test_bench_main;
-end architecture rtl;
+  END PROCESS;
+
+END ARCHITECTURE behavior;
