@@ -49,19 +49,17 @@ BEGIN
     END PROCESS;
 
     -- handles the next_state variable
-    state_decider : PROCESS (cur_state, M_AXI_ARREADY,
-        M_AXI_RLAST, M_AXI_RVALID, read_start)
+    state_decider : PROCESS (cur_state, M_AXI_ARREADY, M_AXI_RVALID, read_start)
     BEGIN
-        next_state <= cur_state;
         CASE cur_state IS
             WHEN rst_state =>
                 next_state <= wait_for_start;
             WHEN wait_for_start =>
-                IF read_start = '1' THEN
+                IF read_start = '1' AND M_AXI_ARREADY = '1' THEN
                     next_state <= assert_arvalid;
                 END IF;
             WHEN assert_arvalid =>
-                IF M_AXI_ARREADY = '1' THEN
+                IF M_AXI_ARREADY = '0' THEN
                     next_state <= wait_for_rvalid_rise;
                 END IF;
             WHEN wait_for_rvalid_rise =>

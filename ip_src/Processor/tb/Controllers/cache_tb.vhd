@@ -84,6 +84,8 @@ BEGIN
 
         WAIT UNTIL rising_edge(clk) AND rst = '0';
 
+        M_AXI_ARREADY <= '1';
+
         -- Test 1: Cache miss scenario
         REPORT "Test 1: Cache miss scenario";
         address <= X"100"; -- Address outside initial cache range
@@ -93,9 +95,8 @@ BEGIN
 
         -- Simulate AXI memory response
         WAIT UNTIL rising_edge(clk) AND M_AXI_ARVALID = '1';
-        M_AXI_ARREADY <= '1';
-        WAIT UNTIL rising_edge(clk) AND M_AXI_ARVALID = '0';
         M_AXI_ARREADY <= '0';
+        WAIT UNTIL rising_edge(clk) AND M_AXI_ARVALID = '0';
 
         -- Simulate data return (64 bytes)
         FOR i IN 0 TO 63 LOOP
@@ -110,8 +111,12 @@ BEGIN
             M_AXI_RVALID <= '0';
             WAIT FOR EDGE_CLK;
         END LOOP;
-        M_AXI_RVALID <= '0';
-        M_AXI_RLAST  <= '0';
+
+        WAIT FOR EDGE_CLK;
+
+        M_AXI_RVALID  <= '0';
+        M_AXI_RLAST   <= '0';
+        M_AXI_ARREADY <= '1';
 
         WAIT UNTIL rising_edge(clk) AND ready = '1';
         ASSERT data = x"06050403" -- Should get bytes 0-3 from address 0x100
@@ -137,9 +142,8 @@ BEGIN
 
         -- Simulate AXI response
         WAIT UNTIL rising_edge(clk) AND M_AXI_ARVALID = '1';
-        M_AXI_ARREADY <= '1';
-        WAIT UNTIL rising_edge(clk) AND M_AXI_ARVALID = '0';
         M_AXI_ARREADY <= '0';
+        WAIT UNTIL rising_edge(clk) AND M_AXI_ARVALID = '0';
 
         FOR i IN 0 TO 63 LOOP
             WAIT UNTIL rising_edge(clk);
@@ -152,8 +156,12 @@ BEGIN
             M_AXI_RVALID <= '0';
             WAIT FOR EDGE_CLK;
         END LOOP;
-        M_AXI_RVALID <= '0';
-        M_AXI_RLAST  <= '0';
+
+        WAIT FOR EDGE_CLK;
+
+        M_AXI_RVALID  <= '0';
+        M_AXI_RLAST   <= '0';
+        M_AXI_ARREADY <= '1';
 
         WAIT UNTIL ready = '1';
         ASSERT data = X"00000063" -- Should get bytes 100-103
@@ -169,9 +177,8 @@ BEGIN
 
         -- Simulate AXI memory response
         WAIT UNTIL rising_edge(clk) AND M_AXI_ARVALID = '1';
-        M_AXI_ARREADY <= '1';
-        WAIT UNTIL rising_edge(clk) AND M_AXI_ARVALID = '0';
         M_AXI_ARREADY <= '0';
+        WAIT UNTIL rising_edge(clk) AND M_AXI_ARVALID = '0';
 
         -- Simulate data return (64 bytes)
         FOR i IN 0 TO 63 LOOP
@@ -186,8 +193,10 @@ BEGIN
             M_AXI_RVALID <= '0';
             WAIT FOR EDGE_CLK;
         END LOOP;
-        M_AXI_RVALID <= '0';
-        M_AXI_RLAST  <= '0';
+
+        M_AXI_RVALID  <= '0';
+        M_AXI_RLAST   <= '0';
+        M_AXI_ARREADY <= '1';
 
         test_completed <= '1';
         REPORT "Cache test completed";
