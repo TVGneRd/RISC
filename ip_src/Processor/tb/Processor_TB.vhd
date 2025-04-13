@@ -19,6 +19,7 @@ ARCHITECTURE rtl OF Processor_TB IS
   SIGNAL registers_test_completed         : STD_LOGIC := '0';
   SIGNAL core_test_completed              : STD_LOGIC := '0';
   SIGNAL result_controller_test_completed : STD_LOGIC := '0';
+  SIGNAL control_unit_test_completed      : STD_LOGIC := '0';
 
   SIGNAL M_AXI_ARADDR  : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
   SIGNAL M_AXI_ARLEN   : STD_LOGIC_VECTOR(7 DOWNTO 0)  := (OTHERS => '0');
@@ -64,6 +65,17 @@ ARCHITECTURE rtl OF Processor_TB IS
   END COMPONENT;
 
   COMPONENT tb_decoder IS
+    GENERIC (
+      EDGE_CLK : TIME := 2 ns
+    );
+    PORT (
+      clk            : IN STD_LOGIC;
+      rst            : IN STD_LOGIC;
+      test_completed : OUT STD_LOGIC
+    );
+  END COMPONENT;
+
+  COMPONENT control_unit_tb IS
     GENERIC (
       EDGE_CLK : TIME := 2 ns
     );
@@ -126,7 +138,13 @@ BEGIN
     M_AXI_RREADY  => M_AXI_RREADY
   );
 
-  test_completed <= decoder_test_completed = '1' AND cache_test_completed = '1' AND alu_test_completed = '1' AND result_controller_test_completed = '1' AND registers_test_completed = '1' AND core_test_completed = '1';
+  test_completed <= decoder_test_completed = '1'
+    AND cache_test_completed = '1'
+    AND alu_test_completed = '1'
+    AND result_controller_test_completed = '1'
+    AND registers_test_completed = '1'
+    AND core_test_completed = '1'
+    AND control_unit_test_completed = '1';
 
   tb_registers_inst : registers_tb
   GENERIC MAP(
@@ -176,6 +194,15 @@ BEGIN
     clk            => refclk,
     rst            => rst,
     test_completed => result_controller_test_completed
+  );
+  tb_control_unit_inst : control_unit_tb
+  GENERIC MAP(
+    EDGE_CLK => EDGE_CLK
+  )
+  PORT MAP(
+    clk            => refclk,
+    rst            => rst,
+    test_completed => control_unit_test_completed
   );
 
   test_clk_generator : PROCESS

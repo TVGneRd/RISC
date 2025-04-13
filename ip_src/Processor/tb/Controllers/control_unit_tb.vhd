@@ -3,7 +3,7 @@ USE IEEE.std_logic_1164.ALL;
 USE IEEE.numeric_std.ALL;
 USE work.riscv_opcodes_pkg.ALL;
 
-ENTITY ControlUnit_tb IS
+ENTITY control_unit_tb IS
     GENERIC (
         EDGE_CLK : TIME := 2 ns
     );
@@ -12,9 +12,9 @@ ENTITY ControlUnit_tb IS
         rst            : IN STD_LOGIC;
         test_completed : OUT STD_LOGIC
     );
-END ENTITY ControlUnit_tb;
+END ENTITY control_unit_tb;
 
-ARCHITECTURE behavior OF ControlUnit_tb IS
+ARCHITECTURE behavior OF control_unit_tb IS
     -- Component Declaration for the Unit Under Test (UUT)
     COMPONENT ControlUnit
         PORT (
@@ -65,7 +65,7 @@ ARCHITECTURE behavior OF ControlUnit_tb IS
 BEGIN
     -- Instantiate the Unit Under Test (UUT)
     uut : ControlUnit PORT MAP(
-        refclk => refclk,
+        refclk => clk,
         rst    => rst,
         opcode => opcode,
         rs1    => rs1,
