@@ -241,7 +241,7 @@ BEGIN
     -- Simulate data return (64 bytes)
     transmit_word("00000001100100000000001010010011", '0'); -- addi x5, zero, 25 
     transmit_word("00000001111000000000001100010011", '0'); -- addi x6, zero, 30
-    transmit_word("00000000011000101000001110110011", '0'); -- addi x6, zero, 30
+    transmit_word("00000000011000101000001110110011", '0'); -- add  x7, x5, x6
     transmit_word("00000011011100000000111000010011", '0'); -- addi x28, zero, 55
     transmit_word("00000101110000111001010001100011", '0'); -- bne x7, x28, test_failed
     transmit_word("01001000000100000000000011101111", '0'); -- j test_failed (100)
