@@ -21,28 +21,10 @@ END ENTITY ALU;
 
 ARCHITECTURE behavioral OF ALU IS
   -- Внутренние сигналы для комбинационных результатов
-  SIGNAL add_result  : STD_LOGIC_VECTOR(31 DOWNTO 0);
-  SIGNAL sub_result  : STD_LOGIC_VECTOR(31 DOWNTO 0);
-  SIGNAL and_result  : STD_LOGIC_VECTOR(31 DOWNTO 0);
-  SIGNAL or_result   : STD_LOGIC_VECTOR(31 DOWNTO 0);
-  SIGNAL xor_result  : STD_LOGIC_VECTOR(31 DOWNTO 0);
-  SIGNAL sll_result  : STD_LOGIC_VECTOR(31 DOWNTO 0);
-  SIGNAL srl_result  : STD_LOGIC_VECTOR(31 DOWNTO 0);
-  SIGNAL sra_result  : STD_LOGIC_VECTOR(31 DOWNTO 0);
-  SIGNAL slt_result  : STD_LOGIC_VECTOR(31 DOWNTO 0);
-  SIGNAL sltu_result : STD_LOGIC_VECTOR(31 DOWNTO 0);
-  SIGNAL lui_result  : STD_LOGIC_VECTOR(31 DOWNTO 0);
-
   SIGNAL result_comb : STD_LOGIC_VECTOR(31 DOWNTO 0);
   SIGNAL zero_comb   : STD_LOGIC;
   SIGNAL sign_comb   : STD_LOGIC;
   SIGNAL ready_comb  : STD_LOGIC;
-
-  SIGNAL result_reg : STD_LOGIC_VECTOR(31 DOWNTO 0);
-  SIGNAL zero_reg   : STD_LOGIC;
-  SIGNAL sign_reg   : STD_LOGIC;
-  SIGNAL ready_reg  : STD_LOGIC;
-
 BEGIN
   -- Комбинационная логика
   comb_logic : PROCESS (refclk, opcode, operand_1, operand_2, enable)
@@ -52,6 +34,23 @@ BEGIN
     VARIABLE op1_unsigned : UNSIGNED(31 DOWNTO 0);
     VARIABLE op2_unsigned : UNSIGNED(31 DOWNTO 0);
     VARIABLE shift_amount : INTEGER RANGE 0 TO 31;
+
+    VARIABLE add_result  : STD_LOGIC_VECTOR(31 DOWNTO 0);
+    VARIABLE sub_result  : STD_LOGIC_VECTOR(31 DOWNTO 0);
+    VARIABLE and_result  : STD_LOGIC_VECTOR(31 DOWNTO 0);
+    VARIABLE or_result   : STD_LOGIC_VECTOR(31 DOWNTO 0);
+    VARIABLE xor_result  : STD_LOGIC_VECTOR(31 DOWNTO 0);
+    VARIABLE sll_result  : STD_LOGIC_VECTOR(31 DOWNTO 0);
+    VARIABLE srl_result  : STD_LOGIC_VECTOR(31 DOWNTO 0);
+    VARIABLE sra_result  : STD_LOGIC_VECTOR(31 DOWNTO 0);
+    VARIABLE slt_result  : STD_LOGIC_VECTOR(31 DOWNTO 0);
+    VARIABLE sltu_result : STD_LOGIC_VECTOR(31 DOWNTO 0);
+    VARIABLE lui_result  : STD_LOGIC_VECTOR(31 DOWNTO 0);
+
+    VARIABLE result_reg : STD_LOGIC_VECTOR(31 DOWNTO 0);
+    VARIABLE zero_reg   : STD_LOGIC;
+    VARIABLE sign_reg   : STD_LOGIC;
+    VARIABLE ready_reg  : STD_LOGIC;
   BEGIN
     -- Приведение типов
     op1_signed   := SIGNED(operand_1);
@@ -61,30 +60,30 @@ BEGIN
     shift_amount := to_integer(UNSIGNED(operand_2(4 DOWNTO 0)));
 
     -- Вычисление операций
-    add_result <= STD_LOGIC_VECTOR(op1_signed + op2_signed);
-    sub_result <= STD_LOGIC_VECTOR(op1_signed - op2_signed);
-    and_result <= operand_1 AND operand_2;
-    or_result  <= operand_1 OR operand_2;
-    xor_result <= operand_1 XOR operand_2;
+    add_result := STD_LOGIC_VECTOR(op1_signed + op2_signed);
+    sub_result := STD_LOGIC_VECTOR(op1_signed - op2_signed);
+    and_result := operand_1 AND operand_2;
+    or_result  := operand_1 OR operand_2;
+    xor_result := operand_1 XOR operand_2;
 
     -- Сдвиги реализованы через явные выражения для VHDL-2002
-    sll_result <= STD_LOGIC_VECTOR(op1_unsigned SLL shift_amount);
-    srl_result <= STD_LOGIC_VECTOR(op1_unsigned SRL shift_amount);
-    sra_result <= STD_LOGIC_VECTOR(shift_right(op1_signed, shift_amount));
+    sll_result := STD_LOGIC_VECTOR(op1_unsigned SLL shift_amount);
+    srl_result := STD_LOGIC_VECTOR(op1_unsigned SRL shift_amount);
+    sra_result := STD_LOGIC_VECTOR(shift_right(op1_signed, shift_amount));
 
     -- Сравнения
     IF op1_signed < op2_signed THEN
-      slt_result <= X"00000001";
+      slt_result := X"00000001";
     ELSE
-      slt_result <= X"00000000";
+      slt_result := X"00000000";
     END IF;
     IF op1_unsigned < op2_unsigned THEN
-      sltu_result <= X"00000001";
+      sltu_result := X"00000001";
     ELSE
-      sltu_result <= X"00000000";
+      sltu_result := X"00000000";
     END IF;
 
-    lui_result <= operand_1;
+    lui_result := operand_1;
 
     -- Выбор результата
     IF enable = '1' THEN
