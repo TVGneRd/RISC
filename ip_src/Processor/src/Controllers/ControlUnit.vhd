@@ -18,15 +18,17 @@ ENTITY ControlUnit IS
 
     opcode : IN riscv_opcode_t;
 
-    rs1_addr : IN STD_LOGIC_VECTOR(4 DOWNTO 0); -- Адрес регистра rs1
-    rs2_addr : IN STD_LOGIC_VECTOR(4 DOWNTO 0); -- Адрес регистра rs2
+    rs1 : IN STD_LOGIC_VECTOR(31 DOWNTO 0); -- регистра rs1
+    rs2 : IN STD_LOGIC_VECTOR(31 DOWNTO 0); -- регистра rs2
 
     imm : IN STD_LOGIC_VECTOR(31 DOWNTO 0); -- Непосредственное значение
 
     enable : IN STD_LOGIC;
 
     pc_in  : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
-    pc_out : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
+    pc_out : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
+
+    jump : OUT STD_LOGIC -- Индикатор перехода 
   );
 END ENTITY ControlUnit;
 ARCHITECTURE rtl OF ControlUnit IS

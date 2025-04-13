@@ -16,6 +16,8 @@ ARCHITECTURE rtl OF Processor_TB IS
   SIGNAL decoder_test_completed           : STD_LOGIC := '0';
   SIGNAL cache_test_completed             : STD_LOGIC := '0';
   SIGNAL alu_test_completed               : STD_LOGIC := '0';
+  SIGNAL registers_test_completed         : STD_LOGIC := '0';
+  SIGNAL core_test_completed              : STD_LOGIC := '0';
   SIGNAL result_controller_test_completed : STD_LOGIC := '0';
 
   SIGNAL M_AXI_ARADDR  : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
@@ -47,6 +49,17 @@ ARCHITECTURE rtl OF Processor_TB IS
       M_AXI_RVALID : IN STD_LOGIC;
       M_AXI_RREADY : OUT STD_LOGIC
       -- /AXI-4 MM (Только Reader) Ports
+    );
+  END COMPONENT;
+
+  COMPONENT registers_tb IS
+    GENERIC (
+      EDGE_CLK : TIME := 2 ns
+    );
+    PORT (
+      clk            : IN STD_LOGIC;
+      rst            : IN STD_LOGIC;
+      test_completed : OUT STD_LOGIC
     );
   END COMPONENT;
 
@@ -113,7 +126,17 @@ BEGIN
     M_AXI_RREADY  => M_AXI_RREADY
   );
 
-  test_completed <= decoder_test_completed = '1' AND cache_test_completed = '1' AND alu_test_completed = '1' AND result_controller_test_completed = '1';
+  test_completed <= decoder_test_completed = '1' AND cache_test_completed = '1' AND alu_test_completed = '1' AND result_controller_test_completed = '1' AND registers_test_completed = '1' AND core_test_completed = '1';
+
+  tb_registers_inst : registers_tb
+  GENERIC MAP(
+    EDGE_CLK => EDGE_CLK
+  )
+  PORT MAP(
+    clk            => refclk,
+    rst            => rst,
+    test_completed => registers_test_completed
+  );
 
   tb_decoder_inst : tb_decoder
   GENERIC MAP(
@@ -167,10 +190,83 @@ BEGIN
   END PROCESS test_clk_generator;
 
   test_bench_main : PROCESS
+    VARIABLE axi_last : STD_LOGIC := '0';
+
+    PROCEDURE transmit_byte(
+      byte : STD_LOGIC_VECTOR(7 DOWNTO 0);
+      last : STD_LOGIC
+    ) IS
+    BEGIN
+      WAIT UNTIL rising_edge(refclk);
+      M_AXI_RVALID <= '1';
+      M_AXI_RDATA  <= byte;
+      M_AXI_RLAST  <= last;
+
+      WAIT UNTIL rising_edge(refclk) AND M_AXI_RREADY = '1' FOR 5 * EDGE_CLK;
+      ASSERT M_AXI_RREADY = '1' REPORT "M_AXI_ARREADY != 1" SEVERITY ERROR;
+
+      M_AXI_RVALID <= '0';
+
+      WAIT FOR EDGE_CLK;
+
+    END PROCEDURE;
+
+    PROCEDURE transmit_word(
+      word : STD_LOGIC_VECTOR(31 DOWNTO 0);
+      last : STD_LOGIC
+    ) IS
+      VARIABLE byte_last : STD_LOGIC := '0';
+    BEGIN
+      FOR i IN 0 TO 3 LOOP
+        IF i = 3 AND last = '1' THEN
+          byte_last := '1';
+        END IF;
+        transmit_byte(word(i * 8 + 7 DOWNTO i * 8), byte_last);
+      END LOOP;
+
+    END PROCEDURE;
+
   BEGIN
     rst <= '1';
     WAIT FOR 10 * EDGE_CLK;
     rst <= '0';
+
+    M_AXI_ARREADY <= '1';
+
+    WAIT UNTIL M_AXI_ARVALID = '1' FOR 10 * EDGE_CLK;
+    ASSERT M_AXI_ARVALID = '1' REPORT "M_AXI_ARREADY != 1" SEVERITY ERROR;
+
+    M_AXI_ARREADY <= '0';
+
+    -- Simulate data return (64 bytes)
+    transmit_word("00000001100100000000001010010011", '0'); -- addi x5, zero, 25 
+    transmit_word("00000001111000000000001100010011", '0'); -- addi x6, zero, 30
+    transmit_word("00000000011000101000001110110011", '0'); -- addi x6, zero, 30
+    transmit_word("00000011011100000000111000010011", '0'); -- addi x28, zero, 55
+    transmit_word("00000101110000111001010001100011", '0'); -- bne x7, x28, test_failed
+    transmit_word("01001000000100000000000011101111", '0'); -- j test_failed (100)
+
+    FOR i IN 5 * 8 TO 63 LOOP
+      IF i = 63 THEN
+        axi_last := '1';
+      END IF;
+      transmit_byte(x"00", axi_last);
+    END LOOP;
+
+    WAIT FOR EDGE_CLK;
+
+    M_AXI_RVALID  <= '0';
+    M_AXI_RLAST   <= '0';
+    M_AXI_ARREADY <= '1';
+
+    WAIT UNTIL M_AXI_ARVALID = '1' FOR 10 * EDGE_CLK;
+    ASSERT M_AXI_ARVALID = '1' REPORT "M_AXI_ARVALID != '1'" SEVERITY ERROR;
+
+    ASSERT M_AXI_ARADDR = x"00190" REPORT "Program should have requested the address 0x190 (100*4)" SEVERITY ERROR;
+
+    core_test_completed <= '1';
+
     WAIT;
+
   END PROCESS test_bench_main;
 END ARCHITECTURE rtl;

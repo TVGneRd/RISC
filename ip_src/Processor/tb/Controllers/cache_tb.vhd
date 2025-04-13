@@ -164,7 +164,7 @@ BEGIN
         M_AXI_ARREADY <= '1';
 
         WAIT UNTIL ready = '1';
-        ASSERT data = X"00000063" -- Should get bytes 100-103
+        ASSERT data = X"67666564" -- Should get bytes 100-103
         REPORT "Test 3 failed: Incorrect data" SEVERITY ERROR;
 
         -- Test 4: Cache miss scenario
