@@ -309,6 +309,9 @@ BEGIN
           control_imm <= decoder_imm;
 
           control_unit_enable <= '1';
+        ELSE
+          control_unit_enable <= '0';
+          alu_valid           <= '0';
         END IF;
       END IF;
     END IF;
