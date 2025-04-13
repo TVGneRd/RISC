@@ -20,7 +20,7 @@ ENTITY ResultController IS
     result  : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
     rd_addr : IN STD_LOGIC_VECTOR(4 DOWNTO 0); -- Адрес регистра rd
 
-    reg_addr_i       : OUT STD_LOGIC_VECTOR(4 DOWNTO 0);  -- адрес регистра (0-31)
+    reg_addr_in      : OUT STD_LOGIC_VECTOR(4 DOWNTO 0);  -- адрес регистра (0-31)
     reg_data_in      : OUT STD_LOGIC_VECTOR(31 DOWNTO 0); -- данные которые хотим записать в регистр 
     reg_write_enable : OUT STD_LOGIC                      -- разрешение на запись, если 0 то данные возвращаются в data_out, иначе записываются в регистр из data_in
   );
@@ -34,17 +34,6 @@ ARCHITECTURE rtl OF ResultController IS
   SIGNAL data_out_unused    : STD_LOGIC_VECTOR(31 DOWNTO 0); -- Не используется
 
 BEGIN
-  -- Инстанцирование модуля Registers
-  reg_inst : ENTITY work.Registers
-    PORT MAP(
-      refclk       => refclk,
-      rst          => rst,
-      addr_i       => reg_addr_internal,
-      data_in      => reg_data_internal,
-      data_out_i   => data_out_unused, -- Не подключаем, так как не нужен
-      write_enable => reg_write_internal
-    );
-
   -- Логика управления записью
   PROCESS (refclk, rst)
   BEGIN
@@ -66,7 +55,7 @@ BEGIN
   END PROCESS;
 
   -- Подключение внутренних сигналов к выходам
-  reg_addr_i       <= reg_addr_internal;
+  reg_addr_in      <= reg_addr_internal;
   reg_data_in      <= reg_data_internal;
   reg_write_enable <= reg_write_internal;
 

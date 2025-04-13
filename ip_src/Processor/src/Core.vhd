@@ -38,6 +38,7 @@ ENTITY Core IS
     M_AXI_RVALID : IN STD_LOGIC;
     M_AXI_RREADY : OUT STD_LOGIC
     -- /AXI-4 MM (Только Reader) Ports
+
   );
 END ENTITY Core;
 
@@ -76,9 +77,10 @@ ARCHITECTURE rtl OF Core IS
   -- /ALU
 
   -- Registers
-  SIGNAL reg_addr_i : STD_LOGIC_VECTOR(4 DOWNTO 0) := (OTHERS => '0'); -- адрес регистра (0-31)
+  SIGNAL reg_addr_out_i : STD_LOGIC_VECTOR(4 DOWNTO 0) := (OTHERS => '0'); -- адрес регистра (0-31)
+  SIGNAL reg_addr_in_i  : STD_LOGIC_VECTOR(4 DOWNTO 0) := (OTHERS => '0'); -- адрес регистра (0-31)
 
-  SIGNAL reg_data_in    : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- данные которые хотим записать в регистр 
+  SIGNAL reg_data_in_i  : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- данные которые хотим записать в регистр 
   SIGNAL reg_data_out_i : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- данные регистра по адресу
 
   SIGNAL reg_write_enable : STD_LOGIC := '0'; -- разрешение на запись, если 0 то данные возвращаются в data_out, иначе записываются в регистр из data_in
@@ -106,8 +108,8 @@ ARCHITECTURE rtl OF Core IS
   TYPE fetch_state_t IS (RESET, IDLE, REQUEST, WAIT_REQUEST_ACCEPT, WAIT_RESPONSE);
   TYPE execution_state_t IS (RESET, IDLE, WAIT_RESULT);
 
-  SIGNAL fetch_state     : fetch_state_t     := IDLE;
-  SIGNAL execution_state : execution_state_t := IDLE;
+  SIGNAL fetch_state     : fetch_state_t     := RESET;
+  SIGNAL execution_state : execution_state_t := RESET;
 
   SIGNAL execution_control : control_signals_t;            -- Управляющие сигналы
   SIGNAL execution_rd_addr : STD_LOGIC_VECTOR(4 DOWNTO 0); -- Адрес регистра rd
@@ -155,10 +157,11 @@ BEGIN
       refclk => refclk,
       rst    => rst,
 
-      addr_i  => reg_addr_i,  -- адрес регистра (0-31)
-      data_in => reg_data_in, -- данные которые хотим записать в регистр 
-
+      addr_out_i => reg_addr_out_i, -- адрес регистра (0-31)
       data_out_i => reg_data_out_i, -- данные регистра по адресу
+
+      addr_in_i => reg_addr_in_i, -- адрес регистра (0-31)
+      data_in_i => reg_data_in_i, -- данные которые хотим записать в регистр 
 
       write_enable => reg_write_enable -- если 0 то данные возвращаются в data_out, иначе записываются в регистр из data_in
     );
@@ -225,8 +228,8 @@ BEGIN
       result  => result_controller_result,
       rd_addr => result_controller_rd_addr,
 
-      reg_addr_i       => reg_addr_i,
-      reg_data_in      => reg_data_in,
+      reg_addr_in      => reg_addr_in_i,
+      reg_data_in      => reg_data_in_i,
       reg_write_enable => reg_write_enable
     );
 
@@ -239,6 +242,7 @@ BEGIN
     IF rising_edge(refclk) THEN
       IF rst = '1' THEN
         fetch_state         <= IDLE;
+        pc_stall            <= '1';
         decoder_instruction <= (OTHERS => '0');
       ELSE
         CASE fetch_state IS
@@ -247,11 +251,13 @@ BEGIN
             cache_address       <= PC;
             decoder_instruction <= (OTHERS => '0');
             cache_valid         <= '0';
+            pc_stall            <= '0';
 
           WHEN REQUEST =>
             fetch_state         <= REQUEST;
             cache_address       <= PC;
             decoder_instruction <= (OTHERS => '0');
+            pc_stall            <= '1';
 
             IF cache_ready = '1' THEN
               cache_valid <= '1';
@@ -259,21 +265,28 @@ BEGIN
             END IF;
 
           WHEN WAIT_REQUEST_ACCEPT =>
+            pc_stall <= '1';
+
             IF cache_ready = '0' THEN
               fetch_state <= WAIT_RESPONSE;
             END IF;
 
           WHEN WAIT_RESPONSE =>
-            IF cache_ready = '1' AND execution_state = IDLE THEN
+            pc_stall <= '1';
+
+            IF cache_ready = '1' THEN
               fetch_state         <= IDLE;
               decoder_instruction <= cache_data;
               cache_valid         <= '0';
             END IF;
+
           WHEN OTHERS =>
             fetch_state         <= IDLE;
             decoder_instruction <= (OTHERS => '0');
             cache_address       <= (OTHERS => '0');
             cache_valid         <= '0';
+            pc_stall            <= '1';
+
         END CASE;
       END IF;
     END IF;
@@ -289,15 +302,15 @@ BEGIN
         execution_rd_addr <= decoder_rd_addr;
         IF decoder_control.alu_en = '1' THEN
           -- ALU
-          opcode     <= decoder_control.opcode;
-          reg_addr_i <= decoder_rs1_addr;
-          operand_1  <= reg_data_out_i;
+          opcode         <= decoder_control.opcode;
+          reg_addr_out_i <= decoder_rs1_addr;
+          operand_1      <= reg_data_out_i;
 
           IF decoder_control.imm_type = IMM_I_TYPE THEN
             operand_2 <= decoder_imm;
           ELSE
-            reg_addr_i <= decoder_rs2_addr;
-            operand_2  <= reg_data_out_i;
+            reg_addr_out_i <= decoder_rs2_addr;
+            operand_2      <= reg_data_out_i;
           END IF;
           alu_valid <= '1';
         ELSIF decoder_control.branch = '1' OR decoder_control.jump = '1' THEN
@@ -306,10 +319,11 @@ BEGIN
 
           control_pc_in <= STD_LOGIC_VECTOR(resize(unsigned(PC), 32));
 
-          reg_addr_i  <= decoder_rs1_addr;
-          control_rs1 <= reg_data_out_i;
-          reg_addr_i  <= decoder_rs2_addr;
-          control_rs2 <= reg_data_out_i;
+          reg_addr_out_i <= decoder_rs1_addr;
+          control_rs1    <= reg_data_out_i;
+
+          reg_addr_out_i <= decoder_rs2_addr;
+          control_rs2    <= reg_data_out_i;
 
           control_imm <= decoder_imm;
 

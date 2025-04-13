@@ -21,7 +21,7 @@ ARCHITECTURE behavior OF result_controller_tb IS
     SIGNAL enable           : STD_LOGIC                     := '0';
     SIGNAL result           : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
     SIGNAL rd_addr          : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0');
-    SIGNAL reg_addr_i       : STD_LOGIC_VECTOR(4 DOWNTO 0);
+    SIGNAL reg_addr_in      : STD_LOGIC_VECTOR(4 DOWNTO 0);
     SIGNAL reg_data_in      : STD_LOGIC_VECTOR(31 DOWNTO 0);
     SIGNAL reg_write_enable : STD_LOGIC;
 
@@ -37,7 +37,7 @@ ARCHITECTURE behavior OF result_controller_tb IS
             result  : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
             rd_addr : IN STD_LOGIC_VECTOR(4 DOWNTO 0); -- Адрес регистра rd
 
-            reg_addr_i       : OUT STD_LOGIC_VECTOR(4 DOWNTO 0);  -- адрес регистра (0-31)
+            reg_addr_in      : OUT STD_LOGIC_VECTOR(4 DOWNTO 0);  -- адрес регистра (0-31)
             reg_data_in      : OUT STD_LOGIC_VECTOR(31 DOWNTO 0); -- данные которые хотим записать в регистр 
             reg_write_enable : OUT STD_LOGIC
         );
@@ -51,7 +51,7 @@ BEGIN
         enable           => enable,
         result           => result,
         rd_addr          => rd_addr,
-        reg_addr_i       => reg_addr_i,
+        reg_addr_in      => reg_addr_in,
         reg_data_in      => reg_data_in,
         reg_write_enable => reg_write_enable
     );
@@ -76,8 +76,8 @@ BEGIN
         -- WAIT FOR 2 * EDGE_CLK;
         -- ASSERT reg_write_enable = '0'
         -- REPORT "Test 1 failed: reg_write_enable not '0' during reset" SEVERITY ERROR;
-        -- ASSERT reg_addr_i = "000000"
-        -- REPORT "Test 1 failed: reg_addr_i not '000000' during reset" SEVERITY ERROR;
+        -- ASSERT reg_addr_in = "000000"
+        -- REPORT "Test 1 failed: reg_addr_in not '000000' during reset" SEVERITY ERROR;
         -- ASSERT reg_data_in = X"00000000"
         -- REPORT "Test 1 failed: reg_data_in not '00000000' during reset" SEVERITY ERROR;
         -- rst <= '0';
@@ -91,8 +91,8 @@ BEGIN
         WAIT FOR EDGE_CLK;
         ASSERT reg_write_enable = '1'
         REPORT "Test 2 failed: reg_write_enable not '1'" SEVERITY ERROR;
-        ASSERT reg_addr_i = "00001"
-        REPORT "Test 2 failed: reg_addr_i not '00001'" SEVERITY ERROR;
+        ASSERT reg_addr_in = "00001"
+        REPORT "Test 2 failed: reg_addr_in not '00001'" SEVERITY ERROR;
         ASSERT reg_data_in = X"DEADBEEF"
         REPORT "Test 2 failed: reg_data_in not 'DEADBEEF'" SEVERITY ERROR;
         enable <= '0';
@@ -106,8 +106,8 @@ BEGIN
         WAIT FOR EDGE_CLK;
         ASSERT reg_write_enable = '0'
         REPORT "Test 3 failed: reg_write_enable not '0'" SEVERITY ERROR;
-        ASSERT reg_addr_i = "00000"
-        REPORT "Test 3 failed: reg_addr_i not '00000'" SEVERITY ERROR;
+        ASSERT reg_addr_in = "00000"
+        REPORT "Test 3 failed: reg_addr_in not '00000'" SEVERITY ERROR;
         ASSERT reg_data_in = X"00000000"
         REPORT "Test 3 failed: reg_data_in not '00000000'" SEVERITY ERROR;
         WAIT FOR EDGE_CLK;
@@ -120,8 +120,8 @@ BEGIN
         WAIT FOR EDGE_CLK;
         ASSERT reg_write_enable = '1'
         REPORT "Test 4 failed: reg_write_enable not '1'" SEVERITY ERROR;
-        ASSERT reg_addr_i = "11111"
-        REPORT "Test 4 failed: reg_addr_i not '11111'" SEVERITY ERROR;
+        ASSERT reg_addr_in = "11111"
+        REPORT "Test 4 failed: reg_addr_in not '11111'" SEVERITY ERROR;
         ASSERT reg_data_in = X"AAAAAAAA"
         REPORT "Test 4 failed: reg_data_in not 'AAAAAAAA'" SEVERITY ERROR;
         enable <= '0';
@@ -135,8 +135,8 @@ BEGIN
         WAIT FOR EDGE_CLK;
         ASSERT reg_write_enable = '1'
         REPORT "Test 5 failed: reg_write_enable not '1'" SEVERITY ERROR;
-        ASSERT reg_addr_i = "00000"
-        REPORT "Test 5 failed: reg_addr_i not '00000'" SEVERITY ERROR;
+        ASSERT reg_addr_in = "00000"
+        REPORT "Test 5 failed: reg_addr_in not '00000'" SEVERITY ERROR;
         ASSERT reg_data_in = X"FFFFFFFF"
         REPORT "Test 5 failed: reg_data_in not 'FFFFFFFF'" SEVERITY ERROR;
         enable <= '0';
