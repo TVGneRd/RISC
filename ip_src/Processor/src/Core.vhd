@@ -58,8 +58,8 @@ ARCHITECTURE rtl OF Core IS
 
   -- Decoder
   SIGNAL decoder_instruction : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Входная инструкция
-  SIGNAL decoder_rs1_addr    : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0'); -- Адрес регистра rs1
-  SIGNAL decoder_rs2_addr    : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0'); -- Адрес регистра rs2
+  SIGNAL decoder_rs1         : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Адрес регистра rs1
+  SIGNAL decoder_rs2         : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Адрес регистра rs2
   SIGNAL decoder_rd_addr     : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0'); -- Адрес регистра rd
   SIGNAL decoder_imm         : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Непосредственное значение
   SIGNAL decoder_control     : control_signals_t;                                -- Управляющие сигналы
@@ -77,11 +77,14 @@ ARCHITECTURE rtl OF Core IS
   -- /ALU
 
   -- Registers
-  SIGNAL reg_addr_out_i : STD_LOGIC_VECTOR(4 DOWNTO 0) := (OTHERS => '0'); -- адрес регистра (0-31)
-  SIGNAL reg_addr_in_i  : STD_LOGIC_VECTOR(4 DOWNTO 0) := (OTHERS => '0'); -- адрес регистра (0-31)
+  SIGNAL reg_addr_out_i_1 : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0'); -- адрес регистра (0-31)
+  SIGNAL reg_data_out_i_1 : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- данные регистра по адресу
 
-  SIGNAL reg_data_in_i  : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- данные которые хотим записать в регистр 
-  SIGNAL reg_data_out_i : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- данные регистра по адресу
+  SIGNAL reg_addr_out_i_2 : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0'); -- адрес регистра (0-31)
+  SIGNAL reg_data_out_i_2 : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- данные регистра по адресу
+
+  SIGNAL reg_addr_in_i : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0'); -- адрес регистра (0-31)
+  SIGNAL reg_data_in_i : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- данные которые хотим записать в регистр 
 
   SIGNAL reg_write_enable : STD_LOGIC := '0'; -- разрешение на запись, если 0 то данные возвращаются в data_out, иначе записываются в регистр из data_in
   -- /Registers
@@ -157,8 +160,11 @@ BEGIN
       refclk => refclk,
       rst    => rst,
 
-      addr_out_i => reg_addr_out_i, -- адрес регистра (0-31)
-      data_out_i => reg_data_out_i, -- данные регистра по адресу
+      addr_out_i_1 => reg_addr_out_i_1, -- адрес регистра (0-31)
+      data_out_i_1 => reg_data_out_i_1, -- данные регистра по адресу
+
+      addr_out_i_2 => reg_addr_out_i_2, -- адрес регистра (0-31)
+      data_out_i_2 => reg_data_out_i_2, -- данные регистра по адресу
 
       addr_in_i => reg_addr_in_i, -- адрес регистра (0-31)
       data_in_i => reg_data_in_i, -- данные которые хотим записать в регистр 
@@ -173,10 +179,17 @@ BEGIN
 
       instruction => decoder_instruction, -- Входная инструкция
 
-      rs1_addr => decoder_rs1_addr, -- Адрес регистра rs1
-      rs2_addr => decoder_rs2_addr, -- Адрес регистра rs2
-      rd_addr  => decoder_rd_addr,  -- Адрес регистра rd
-      imm      => decoder_imm,      -- Непосредственное значение
+      reg_addr_out_i_1 => reg_addr_out_i_1, -- адрес регистра (0-31)
+      reg_data_out_i_1 => reg_data_out_i_1, -- данные регистра по адресу
+
+      reg_addr_out_i_2 => reg_addr_out_i_2, -- адрес регистра (0-31)
+      reg_data_out_i_2 => reg_data_out_i_2, -- данные регистра по адресу
+
+      rs1 => decoder_rs1, -- регистр rs1
+      rs2 => decoder_rs2, -- регистр rs2
+
+      rd_addr => decoder_rd_addr, -- Адрес регистра rd
+      imm     => decoder_imm,     -- Непосредственное значение
 
       control => decoder_control
     );
@@ -302,15 +315,13 @@ BEGIN
         execution_rd_addr <= decoder_rd_addr;
         IF decoder_control.alu_en = '1' THEN
           -- ALU
-          opcode         <= decoder_control.opcode;
-          reg_addr_out_i <= decoder_rs1_addr;
-          operand_1      <= reg_data_out_i;
+          opcode    <= decoder_control.opcode;
+          operand_1 <= decoder_rs1;
 
           IF decoder_control.imm_type = IMM_I_TYPE THEN
             operand_2 <= decoder_imm;
           ELSE
-            reg_addr_out_i <= decoder_rs2_addr;
-            operand_2      <= reg_data_out_i;
+            operand_2 <= decoder_rs2;
           END IF;
           alu_enable <= '1';
         ELSIF decoder_control.branch = '1' OR decoder_control.jump = '1' THEN
@@ -319,11 +330,8 @@ BEGIN
 
           control_pc_in <= STD_LOGIC_VECTOR(resize(unsigned(PC), 32));
 
-          reg_addr_out_i <= decoder_rs1_addr;
-          control_rs1    <= reg_data_out_i;
-
-          reg_addr_out_i <= decoder_rs2_addr;
-          control_rs2    <= reg_data_out_i;
+          control_rs1 <= decoder_rs1;
+          control_rs2 <= decoder_rs2;
 
           control_imm <= decoder_imm;
 
