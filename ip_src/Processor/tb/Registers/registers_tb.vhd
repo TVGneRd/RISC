@@ -16,7 +16,7 @@ ENTITY registers_tb IS
 END ENTITY registers_tb;
 
 ARCHITECTURE behavior OF registers_tb IS
-    SIGNAL reset : STD_LOGIC := '0';
+    SIGNAL reset : STD_LOGIC := '1';
 
     SIGNAL addr_in : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0');
     SIGNAL data_in : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
@@ -47,7 +47,7 @@ BEGIN
     BEGIN
         test_completed <= '0';
         reset          <= rst;
-        WAIT UNTIL rising_edge(clk) AND reset = '0';
+        WAIT UNTIL rising_edge(clk) AND rst = '0';
 
         -- Попытка записи в x0 (addr_in = 0), не должна сохраняться
         addr_in      <= "00000"; -- x0
