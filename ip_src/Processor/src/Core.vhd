@@ -72,8 +72,8 @@ ARCHITECTURE rtl OF Core IS
   SIGNAL alu_result : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Результат
   SIGNAL alu_zero   : STD_LOGIC                     := '0';             -- Флаг нуля (для ветвлений)
   SIGNAL alu_sign   : STD_LOGIC                     := '0';             -- Флаг знака (для сравнений)
-  SIGNAL alu_valid  : STD_LOGIC                     := '0';
-  SIGNAL alu_ready  : STD_LOGIC                     := '0';
+  SIGNAL alu_enable : STD_LOGIC                     := '0';
+  --SIGNAL alu_ready  : STD_LOGIC                     := '0';
   -- /ALU
 
   -- Registers
@@ -195,8 +195,8 @@ BEGIN
       zero => alu_zero, -- Флаг нуля (для ветвлений)
       sign => alu_sign, -- Флаг знака (для сравнений)
 
-      valid => alu_valid,
-      ready => alu_ready
+      enable => alu_enable
+      --ready => alu_ready
     );
 
   control_unit : ENTITY work.ControlUnit
@@ -312,7 +312,7 @@ BEGIN
             reg_addr_out_i <= decoder_rs2_addr;
             operand_2      <= reg_data_out_i;
           END IF;
-          alu_valid <= '1';
+          alu_enable <= '1';
         ELSIF decoder_control.branch = '1' OR decoder_control.jump = '1' THEN
           -- ControlUnit
           opcode <= decoder_control.opcode;
@@ -330,7 +330,7 @@ BEGIN
           control_unit_enable <= '1';
         ELSE
           control_unit_enable <= '0';
-          alu_valid           <= '0';
+          alu_enable          <= '0';
         END IF;
       END IF;
     END IF;

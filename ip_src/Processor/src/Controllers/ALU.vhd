@@ -14,8 +14,8 @@ ENTITY ALU IS
     result    : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
     zero      : OUT STD_LOGIC;
     sign      : OUT STD_LOGIC;
-    valid     : IN STD_LOGIC;
-    ready     : OUT STD_LOGIC
+    enable    : IN STD_LOGIC
+    --ready     : OUT STD_LOGIC
   );
 END ENTITY ALU;
 
@@ -45,7 +45,7 @@ ARCHITECTURE behavioral OF ALU IS
 
 BEGIN
   -- Комбинационная логика
-  comb_logic : PROCESS (refclk, opcode, operand_1, operand_2, valid)
+  comb_logic : PROCESS (refclk, opcode, operand_1, operand_2, enable)
     -- Используем сигналы вместо переменных для совместимости с VHDL-2002
     VARIABLE op1_signed   : SIGNED(31 DOWNTO 0);
     VARIABLE op2_signed   : SIGNED(31 DOWNTO 0);
@@ -87,7 +87,7 @@ BEGIN
     lui_result <= operand_1;
 
     -- Выбор результата
-    IF valid = '1' THEN
+    IF enable = '1' THEN
       CASE opcode IS
         WHEN OP_ADD | OP_ADDI =>
           result_comb <= add_result;
@@ -114,10 +114,10 @@ BEGIN
         WHEN OTHERS =>
           result_comb <= result_comb;
       END CASE;
-      ready_comb <= '1';
+      --ready_comb <= '1';
     ELSE
       --result_comb <= (OTHERS => '0');
-      ready_comb <= '0';
+      --ready_comb <= '0';
     END IF;
 
     -- Флаги
@@ -150,6 +150,6 @@ BEGIN
   result <= result_comb;
   zero   <= zero_comb;
   sign   <= sign_comb;
-  ready  <= ready_comb;
+  --ready  <= ready_comb;
 
 END behavioral;
