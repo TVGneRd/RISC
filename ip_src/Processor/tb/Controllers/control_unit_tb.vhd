@@ -89,7 +89,7 @@ BEGIN
         rs1    <= X"0000000A";
         rs2    <= X"0000000A";
         imm    <= X"00000004"; -- pc_out should be 0x10 (4*4)
-        pc_in  <= X"00000001";
+        pc_in  <= X"00000000";
         verify_test("BEQ (equal)", X"00000005", '1', pc_out, jump);
 
         -- Test 2: BEQ when not equal
