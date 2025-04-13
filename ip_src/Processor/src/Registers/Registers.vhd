@@ -19,7 +19,7 @@ ENTITY Registers IS
     refclk : IN STD_LOGIC;--! reference clock expect 250Mhz
     rst    : IN STD_LOGIC;--! sync active high reset. sync -> refclk
 
-    addr_i  : IN STD_LOGIC_VECTOR(5 DOWNTO 0);  -- адрес регистра (0-31)
+    addr_i  : IN STD_LOGIC_VECTOR(4 DOWNTO 0);  -- адрес регистра (0-31)
     data_in : IN STD_LOGIC_VECTOR(31 DOWNTO 0); -- данные которые хотим записать в регистр 
 
     data_out_i : OUT STD_LOGIC_VECTOR(31 DOWNTO 0); -- данные регистра по адресу

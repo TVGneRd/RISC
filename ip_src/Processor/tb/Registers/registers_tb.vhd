@@ -17,7 +17,7 @@ END ENTITY registers_tb;
 
 ARCHITECTURE behavior OF registers_tb IS
     SIGNAL reset        : STD_LOGIC                     := '0';
-    SIGNAL addr_i       : STD_LOGIC_VECTOR(5 DOWNTO 0)  := (OTHERS => '0');
+    SIGNAL addr_i       : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0');
     SIGNAL data_in      : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
     SIGNAL data_out_i   : STD_LOGIC_VECTOR(31 DOWNTO 0);
     SIGNAL write_enable : STD_LOGIC := '0';
@@ -42,7 +42,7 @@ BEGIN
         WAIT UNTIL rising_edge(clk) AND reset = '0';
 
         -- Попытка записи в x0 (addr_i = 0), не должна сохраняться
-        addr_i       <= "000000"; -- x0
+        addr_i       <= "00000"; -- x0
         data_in      <= x"DEADBEEF";
         write_enable <= '1';
         WAIT FOR EDGE_CLK;
@@ -54,7 +54,7 @@ BEGIN
         REPORT "Error: Register x0 cannot be not a 0!" SEVERITY ERROR;
 
         -- Запись в x5
-        addr_i       <= "000101"; -- x5
+        addr_i       <= "00101"; -- x5
         data_in      <= x"12345678";
         write_enable <= '1';
         WAIT FOR EDGE_CLK;
@@ -80,7 +80,7 @@ BEGIN
         reset <= '1';
         WAIT FOR EDGE_CLK;
         reset  <= '0';
-        addr_i <= "000101"; -- x5
+        addr_i <= "00101"; -- x5
         WAIT FOR EDGE_CLK;
         ASSERT data_out_i = x"00000000"
         REPORT "Error: Register x5 has invalid zero value" SEVERITY ERROR;
