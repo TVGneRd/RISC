@@ -99,7 +99,7 @@ BEGIN
         operand_1 <= X"FFFFFFFE"; -- -2
         operand_2 <= X"00000001"; -- 1
         opcode    <= OP_SLT;      -- OP_SLT
-        WAIT FOR EDGE_CLK * 1;
+        WAIT FOR EDGE_CLK * 2;
         ASSERT result = X"00000001" -- Ожидаем 1 (true, -2 < 1)
         REPORT "SLT failed!" SEVERITY ERROR;
         valid <= '0';
@@ -110,7 +110,7 @@ BEGIN
         operand_1 <= X"FFFFFFFE"; -- большое положительное
         operand_2 <= X"00000001"; -- 1
         opcode    <= OP_SLTU;     -- OP_SLTU
-        WAIT FOR EDGE_CLK * 1;
+        WAIT FOR EDGE_CLK * 2;
         ASSERT result = X"00000000" -- Ожидаем 0 (false, 2^32-2 > 1)
         REPORT "SLTU failed!" SEVERITY ERROR;
         valid <= '0';
@@ -136,6 +136,18 @@ BEGIN
         REPORT "ADD failed!" SEVERITY ERROR;
         valid <= '0';
         WAIT FOR EDGE_CLK * 2;
+        
+        --Тест 6 SUB (Сложение)
+        valid     <= '1';
+        operand_1 <= X"00031500"; -- большое положительное
+        operand_2 <= X"00016300"; -- 1
+        opcode    <= OP_SUB;      -- OP_SLTU
+        WAIT FOR EDGE_CLK * 2;
+        ASSERT result = X"0001B200" -- Ожидаем 0 (false, 2^32-2 > 1)
+        REPORT "SUB failed!" SEVERITY ERROR;
+        valid <= '0';
+        WAIT FOR EDGE_CLK * 2;
+        
         -- Завершение
         test_completed <= '1';
         REPORT "ALU test completed!" SEVERITY NOTE;

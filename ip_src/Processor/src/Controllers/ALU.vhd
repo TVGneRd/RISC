@@ -51,7 +51,7 @@ ARCHITECTURE behavioral OF ALU IS
 
 BEGIN
   -- Комбинационная логика
-  comb_logic : PROCESS (opcode, operand_1, operand_2, valid)
+  comb_logic : PROCESS (refclk, opcode, operand_1, operand_2, valid)
     -- Используем сигналы вместо переменных для совместимости с VHDL-2002
   BEGIN
     -- Приведение типов
