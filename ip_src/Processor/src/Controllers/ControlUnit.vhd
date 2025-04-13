@@ -84,14 +84,11 @@ BEGIN
           pc_out <= pc_in;
         END IF;
 
-      WHEN OP_LUI =>
-        pc_out <= pc_in + 4;
-        jump   <= '1';
-      WHEN OP_AUIPC =>
-        jump <= '1';
       WHEN OP_JAL =>
         pc_out <= imm;
         jump   <= '1';
+      WHEN OTHERS       =>
+        pc_out <= (OTHERS => '0');
     END CASE;
   END IF;
 END PROCESS;
