@@ -90,11 +90,15 @@ BEGIN
         rs2    <= X"0000000A";
         imm    <= X"00000004"; -- pc_out should be 0x10 (4*4)
         pc_in  <= X"00000000";
-        verify_test("BEQ (equal)", X"00000005", '1', pc_out, jump);
+
+        WAIT FOR EDGE_CLK;
+        verify_test("BEQ (equal)", X"00000010", '1', pc_out, jump);
 
         -- Test 2: BEQ when not equal
         rs1 <= X"0000000A";
         rs2 <= X"0000000B";
+
+        WAIT FOR EDGE_CLK;
         verify_test("BEQ (not equal)", pc_in, '0', pc_out, jump);
 
         -- Test 3: BNE when not equal
@@ -102,12 +106,14 @@ BEGIN
         rs1    <= X"0000000A";
         rs2    <= X"0000000B";
 
+        WAIT FOR EDGE_CLK;
         verify_test("BNE (not equal)", X"00000010", '1', pc_out, jump);
 
         -- Test 4: BNE when equal
         rs1 <= X"0000000A";
         rs2 <= X"0000000A";
 
+        WAIT FOR EDGE_CLK;
         verify_test("BNE (equal)", pc_in, '0', pc_out, jump);
 
         -- Test 5: BLT when less (signed)
@@ -115,12 +121,14 @@ BEGIN
         rs1    <= X"FFFFFFFF"; -- -1
         rs2    <= X"00000001"; -- 1
 
+        WAIT FOR EDGE_CLK;
         verify_test("BLT (less, signed)", X"00000010", '1', pc_out, jump);
 
         -- Test 6: BLT when not less (signed)
         rs1 <= X"00000002"; -- 2
         rs2 <= X"00000001"; -- 1
 
+        WAIT FOR EDGE_CLK;
         verify_test("BLT (not less, signed)", pc_in, '0', pc_out, jump);
 
         -- Test 7: BGE when greater or equal (signed)
@@ -128,12 +136,14 @@ BEGIN
         rs1    <= X"00000001"; -- 1
         rs2    <= X"FFFFFFFF"; -- -1
 
+        WAIT FOR EDGE_CLK;
         verify_test("BGE (greater, signed)", X"00000010", '1', pc_out, jump);
 
         -- Test 8: BGE when not greater or equal (signed)
         rs1 <= X"FFFFFFFF"; -- -1
         rs2 <= X"00000001"; -- 1
 
+        WAIT FOR EDGE_CLK;
         verify_test("BGE (not greater, signed)", pc_in, '0', pc_out, jump);
 
         -- Test 9: BLTU when less (unsigned)
@@ -141,12 +151,14 @@ BEGIN
         rs1    <= X"00000001"; -- 1
         rs2    <= X"00000002"; -- 2
 
+        WAIT FOR EDGE_CLK;
         verify_test("BLTU (less, unsigned)", X"00000010", '1', pc_out, jump);
 
         -- Test 10: BLTU when not less (unsigned)
         rs1 <= X"00000002"; -- 2
         rs2 <= X"00000001"; -- 1
 
+        WAIT FOR EDGE_CLK;
         verify_test("BLTU (not less, unsigned)", pc_in, '0', pc_out, jump);
 
         -- Test 11: BGEU when greater or equal (unsigned)
@@ -154,19 +166,22 @@ BEGIN
         rs1    <= X"00000002"; -- 2
         rs2    <= X"00000001"; -- 1
 
+        WAIT FOR EDGE_CLK;
         verify_test("BGEU (greater, unsigned)", X"00000010", '1', pc_out, jump);
 
         -- Test 12: BGEU when not greater or equal (unsigned)
         rs1 <= X"00000001"; -- 1
         rs2 <= X"00000002"; -- 2
 
+        WAIT FOR EDGE_CLK;
         verify_test("BGEU (not greater, unsigned)", pc_in, '0', pc_out, jump);
 
         -- Test 13: JAL (unconditional jump)
         opcode <= OP_JAL;
         imm    <= X"00001000"; -- Jump to 0x1000 directly
 
-        verify_test("JAL (unconditional)", X"00001000", '1', pc_out, jump);
+        WAIT FOR EDGE_CLK;
+        verify_test("JAL (unconditional)", X"00004000", '1', pc_out, jump);
 
         -- Test 14: Disabled (enable = 0)
         enable <= '0';
@@ -174,12 +189,14 @@ BEGIN
         rs1    <= X"0000000A";
         rs2    <= X"0000000A";
 
+        WAIT FOR EDGE_CLK;
         verify_test("Disabled (enable=0)", pc_in, '0', pc_out, jump);
 
         -- Test 15: Unknown opcode
         enable <= '1';
         opcode <= OP_INVALID; -- Unknown opcode
 
+        WAIT FOR EDGE_CLK;
         verify_test("Unknown opcode", (OTHERS => '0'), '0', pc_out, jump);
 
         -- End of simulation
