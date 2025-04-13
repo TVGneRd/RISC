@@ -92,7 +92,7 @@ BEGIN
         REPORT "OR failed!" SEVERITY ERROR;
         --WAIT FOR EDGE_CLK;
         valid <= '0';
-        WAIT FOR EDGE_CLK * 1;
+        WAIT FOR EDGE_CLK * 2;
 
         -- Тест 2: SLT (сравнение со знаком)
         valid     <= '1';
@@ -103,7 +103,7 @@ BEGIN
         ASSERT result = X"00000001" -- Ожидаем 1 (true, -2 < 1)
         REPORT "SLT failed!" SEVERITY ERROR;
         valid <= '0';
-        WAIT FOR EDGE_CLK * 1;
+        WAIT FOR EDGE_CLK * 2;
 
         -- Тест 3: SLTU (сравнение без знака)
         valid     <= '1';
@@ -114,28 +114,28 @@ BEGIN
         ASSERT result = X"00000000" -- Ожидаем 0 (false, 2^32-2 > 1)
         REPORT "SLTU failed!" SEVERITY ERROR;
         valid <= '0';
-        WAIT FOR EDGE_CLK * 1;
+        WAIT FOR EDGE_CLK * 2;
 
         -- Тест 4: LUI
         valid     <= '1';
         operand_1 <= X"12345000"; -- Загружаем 0x12345 << 12
         opcode    <= OP_LUI;      -- OP_LUI
-        WAIT FOR EDGE_CLK * 1;
+        WAIT FOR EDGE_CLK * 2;
         ASSERT result = X"12345000" -- Ожидаем тот же верхний бит
         REPORT "LUI failed!" SEVERITY ERROR;
         valid <= '0';
-        WAIT FOR EDGE_CLK * 1;
+        WAIT FOR EDGE_CLK * 2;
 
         --Тест 5 ADD (Сложение)
         valid     <= '1';
         operand_1 <= X"00001000"; -- большое положительное
         operand_2 <= X"00001010"; -- 1
         opcode    <= OP_ADD;      -- OP_SLTU
-        WAIT FOR EDGE_CLK * 1;
+        WAIT FOR EDGE_CLK * 2;
         ASSERT result = X"00002010" -- Ожидаем 0 (false, 2^32-2 > 1)
         REPORT "ADD failed!" SEVERITY ERROR;
         valid <= '0';
-        WAIT FOR EDGE_CLK * 1;
+        WAIT FOR EDGE_CLK * 2;
         -- Завершение
         test_completed <= '1';
         REPORT "ALU test completed!" SEVERITY NOTE;
