@@ -292,9 +292,14 @@ BEGIN
           opcode     <= decoder_control.opcode;
           reg_addr_i <= decoder_rs1_addr;
           operand_1  <= reg_data_out_i;
-          reg_addr_i <= decoder_rs2_addr;
-          operand_2  <= reg_data_out_i;
-          alu_valid  <= '1';
+
+          IF decoder_control.imm_type = IMM_I_TYPE THEN
+            operand_2 <= decoder_imm;
+          ELSE
+            reg_addr_i <= decoder_rs2_addr;
+            operand_2  <= reg_data_out_i;
+          END IF;
+          alu_valid <= '1';
         ELSIF decoder_control.branch = '1' OR decoder_control.jump = '1' THEN
           -- ControlUnit
           opcode <= decoder_control.opcode;
@@ -344,9 +349,6 @@ BEGIN
   BEGIN
     IF rising_edge(refclk) THEN
       IF rst = '1' THEN
-        result_controller_enable  <= '0';
-        result_controller_result  <= (OTHERS => '0');
-        result_controller_rd_addr <= (OTHERS => '0');
       END IF;
     END IF;
   END PROCESS result;
