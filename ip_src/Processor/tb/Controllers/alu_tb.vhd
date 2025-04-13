@@ -69,6 +69,8 @@ BEGIN
 
     stim_proc : PROCESS
     BEGIN
+        test_completed <= '0';
+
         -- Сброс
         -- WAIT FOR 20 ns;
         -- rst <= '0';
