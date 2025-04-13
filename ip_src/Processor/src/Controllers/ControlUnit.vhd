@@ -35,5 +35,65 @@ END ENTITY ControlUnit;
 ARCHITECTURE rtl OF ControlUnit IS
 
 BEGIN
+  IF enable = 1 THEN
+    CASE opcode IS
+        -- R-тип
+      WHEN OP_BEQ =>
+        IF rs1 == rs2 THEN
+          pc_out <= imm * 4;
+          jump   <= '1';
+        ELSE
+          pc_out <= pc_in;
+        END IF;
+      WHEN OP_BNE =>
+        IF rs1 ! = rs2 THEN
+          pc_out <= imm * 4;
+          jump   <= '1';
+        ELSE
+          pc_out <= pc_in;
+        END IF;
+
+      WHEN OP_BLT =>
+        IF signed(rs1) < signed(rs2) THEN
+          pc_out <= imm * 4;
+          jump   <= '1';
+        ELSE
+          pc_out <= pc_in;
+        END IF;
+
+      WHEN OP_BGE =>
+        IF signed(rs1) >= signed(rs2) THEN
+          pc_out <= imm * 4;
+          jump   <= '1';
+        ELSE
+          pc_out <= pc_in;
+        END IF;
+
+      WHEN OP_BLTU =>
+        IF unsigned(rs1) < unsigned(rs2) THEN
+          pc_out <= imm * 4;
+          jump   <= '1';
+        ELSE
+          pc_out <= pc_in;
+        END IF;
+      WHEN OP_BGEU =>
+        IF unsigned(rs1) >= unsigned(rs2) THEN
+          pc_out <= imm * 4;
+          jump   <= '1';
+        ELSE
+          pc_out <= pc_in;
+        END IF;
+
+      WHEN OP_LUI =>
+        pc_out <= pc_in + 4;
+        jump   <= '1';
+      WHEN OP_AUIPC =>
+        jump <= '1';
+      WHEN OP_JAL =>
+        pc_out <= imm;
+        jump   <= '1';
+    END CASE;
+  END IF;
+END PROCESS;
 
 END ARCHITECTURE rtl;
