@@ -42,57 +42,88 @@ ENTITY Core IS
 END ENTITY Core;
 
 ARCHITECTURE rtl OF Core IS
-  SIGNAL PC : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
+
+  SIGNAL PC           : STD_LOGIC_VECTOR(11 DOWNTO 0);
+  SIGNAL pc_stall     : STD_LOGIC                     := '0';
+  SIGNAL pc_jump_flag : STD_LOGIC                     := '0';
+  SIGNAL pc_jump_addr : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
 
   -- Cache
-  SIGNAL cache_address : STD_LOGIC_VECTOR(11 DOWNTO 0);
-  SIGNAL cache_data    : STD_LOGIC_VECTOR(31 DOWNTO 0);
-  SIGNAL cache_valid   : STD_LOGIC;
-  SIGNAL cache_ready   : STD_LOGIC;
+  SIGNAL cache_address : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL cache_data    : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL cache_valid   : STD_LOGIC                     := '0';
+  SIGNAL cache_ready   : STD_LOGIC                     := '0';
   -- /Cache
 
   -- Decoder
-  SIGNAL decoder_instruction : STD_LOGIC_VECTOR(31 DOWNTO 0); -- Входная инструкция
-  SIGNAL decoder_rs1_addr    : STD_LOGIC_VECTOR(4 DOWNTO 0);  -- Адрес регистра rs1
-  SIGNAL decoder_rs2_addr    : STD_LOGIC_VECTOR(4 DOWNTO 0);  -- Адрес регистра rs2
-  SIGNAL decoder_rd_addr     : STD_LOGIC_VECTOR(4 DOWNTO 0);  -- Адрес регистра rd
-  SIGNAL decoder_imm         : STD_LOGIC_VECTOR(31 DOWNTO 0); -- Непосредственное значение
-  SIGNAL decoder_control     : control_signals_t;             -- Управляющие сигналы
+  SIGNAL decoder_instruction : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Входная инструкция
+  SIGNAL decoder_rs1_addr    : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0'); -- Адрес регистра rs1
+  SIGNAL decoder_rs2_addr    : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0'); -- Адрес регистра rs2
+  SIGNAL decoder_rd_addr     : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0'); -- Адрес регистра rd
+  SIGNAL decoder_imm         : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Непосредственное значение
+  SIGNAL decoder_control     : control_signals_t;                                -- Управляющие сигналы
   -- /Decoder
 
   -- ALU
-  SIGNAL opcodecode    : riscv_opcode_t;
-  SIGNAL opcodeerand_1 : STD_LOGIC_VECTOR(31 DOWNTO 0);
-  SIGNAL opcodeerand_2 : STD_LOGIC_VECTOR(31 DOWNTO 0);
-  SIGNAL alu_result    : STD_LOGIC_VECTOR(31 DOWNTO 0); -- Результат
-  SIGNAL alu_zero      : STD_LOGIC;                     -- Флаг нуля (для ветвлений)
-  SIGNAL alu_sign      : STD_LOGIC;                     -- Флаг знака (для сравнений)
-  SIGNAL alu_valid     : STD_LOGIC;
-  SIGNAL alu_ready     : STD_LOGIC;
+  SIGNAL opcode     : riscv_opcode_t;
+  SIGNAL operand_1  : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL operand_2  : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL alu_result : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Результат
+  SIGNAL alu_zero   : STD_LOGIC                     := '0';             -- Флаг нуля (для ветвлений)
+  SIGNAL alu_sign   : STD_LOGIC                     := '0';             -- Флаг знака (для сравнений)
+  SIGNAL alu_valid  : STD_LOGIC                     := '0';
+  SIGNAL alu_ready  : STD_LOGIC                     := '0';
   -- /ALU
 
   -- Registers
-  SIGNAL reg_addr_i : STD_LOGIC_VECTOR(5 DOWNTO 0); -- адрес регистра (0-31)
+  SIGNAL reg_addr_i : STD_LOGIC_VECTOR(4 DOWNTO 0) := (OTHERS => '0'); -- адрес регистра (0-31)
 
-  SIGNAL reg_data_in    : STD_LOGIC_VECTOR(31 DOWNTO 0); -- данные которые хотим записать в регистр 
-  SIGNAL reg_data_out_i : STD_LOGIC_VECTOR(31 DOWNTO 0); -- данные регистра по адресу
+  SIGNAL reg_data_in    : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- данные которые хотим записать в регистр 
+  SIGNAL reg_data_out_i : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- данные регистра по адресу
 
-  SIGNAL reg_write_enable : STD_LOGIC; -- разрешение на запись, если 0 то данные возвращаются в data_out, иначе записываются в регистр из data_in
+  SIGNAL reg_write_enable : STD_LOGIC := '0'; -- разрешение на запись, если 0 то данные возвращаются в data_out, иначе записываются в регистр из data_in
   -- /Registers
+
+  -- ControlUnit
+  SIGNAL control_unit_enable : STD_LOGIC                     := '0';
+  SIGNAL control_pc_out      : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL control_pc_in       : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL control_rs1         : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Адрес регистра rs1
+  SIGNAL control_rs2         : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Адрес регистра rs2
+  SIGNAL control_imm         : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Адрес регистра rs2
+  SIGNAL control_jump        : STD_LOGIC                     := '0';
+  -- /ControlUnit
+
+  -- ResultController
+  SIGNAL result_controller_enable  : STD_LOGIC := '0';
+  SIGNAL result_controller_rd_addr : STD_LOGIC_VECTOR(4 DOWNTO 0);
+  SIGNAL result_controller_result  : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
+  -- /ResultController
 
   -- 
   -- Конвейеры
   -- 
-  TYPE fetch_state_t IS (RESET, IDLE, REQUEST, WAIT_RESPONSE);
+  TYPE fetch_state_t IS (RESET, IDLE, REQUEST, WAIT_REQUEST_ACCEPT, WAIT_RESPONSE);
   TYPE execution_state_t IS (RESET, IDLE, WAIT_RESULT);
 
   SIGNAL fetch_state     : fetch_state_t     := IDLE;
   SIGNAL execution_state : execution_state_t := IDLE;
 
-  SIGNAL execution_control : control_signals_t; -- Управляющие сигналы
-
+  SIGNAL execution_control : control_signals_t;            -- Управляющие сигналы
+  SIGNAL execution_rd_addr : STD_LOGIC_VECTOR(4 DOWNTO 0); -- Адрес регистра rd
   -- 
 BEGIN
+  pc_controller_inst : ENTITY work.PC_Controller
+    PORT MAP(
+      clk => refclk,
+      rst => rst,
+
+      stall     => pc_stall,
+      jump      => pc_jump_flag,
+      jump_addr => pc_jump_addr,
+      pc_out    => PC
+    );
+
   cache : ENTITY work.Cache
     PORT MAP(
       refclk => refclk,
@@ -152,9 +183,9 @@ BEGIN
       refclk => refclk,
       rst    => rst,
 
-      opcode    => opcodecode,
-      operand_1 => opcodeerand_1,
-      operand_2 => opcodeerand_2,
+      opcode    => opcode,
+      operand_1 => operand_1,
+      operand_2 => operand_2,
 
       result => alu_result, -- Результат
 
@@ -165,25 +196,78 @@ BEGIN
       ready => alu_ready
     );
 
+  control_unit : ENTITY work.ControlUnit
+    PORT MAP(
+      refclk => refclk,
+      rst    => rst,
+
+      opcode => opcode,
+
+      rs1 => control_rs1,
+      rs2 => control_rs2,
+
+      imm => control_imm,
+
+      enable => control_unit_enable,
+
+      pc_in  => control_pc_in,
+      pc_out => control_pc_out,
+
+      jump => control_jump
+    );
+
+  result_controller : ENTITY work.ResultController
+    PORT MAP(
+      refclk => refclk,
+      rst    => rst,
+
+      enable  => result_controller_enable,
+      result  => result_controller_result,
+      rd_addr => result_controller_rd_addr,
+
+      reg_addr_i       => reg_addr_i,
+      reg_data_in      => reg_data_in,
+      reg_write_enable => reg_write_enable
+    );
+
+  -- 
+  -- Precess
+  -- 
+
   fetch : PROCESS (refclk)
   BEGIN
     IF rising_edge(refclk) THEN
       IF rst = '1' THEN
-        fetch_state <= IDLE;
-        PC          <= (OTHERS => '0');
+        fetch_state         <= IDLE;
+        decoder_instruction <= (OTHERS => '0');
       ELSE
         CASE fetch_state IS
           WHEN IDLE =>
             fetch_state         <= REQUEST;
             cache_address       <= PC;
             decoder_instruction <= (OTHERS => '0');
-            cache_valid         <= '1';
+            cache_valid         <= '0';
+
+          WHEN REQUEST =>
+            fetch_state         <= REQUEST;
+            cache_address       <= PC;
+            decoder_instruction <= (OTHERS => '0');
+
+            IF cache_ready = '1' THEN
+              cache_valid <= '1';
+              fetch_state <= WAIT_REQUEST_ACCEPT;
+            END IF;
+
+          WHEN WAIT_REQUEST_ACCEPT =>
+            IF cache_ready = '0' THEN
+              fetch_state <= WAIT_RESPONSE;
+            END IF;
+
           WHEN WAIT_RESPONSE =>
             IF cache_ready = '1' AND execution_state = IDLE THEN
               fetch_state         <= IDLE;
               decoder_instruction <= cache_data;
               cache_valid         <= '0';
-              PC                  <= STD_LOGIC_VECTOR(unsigned(PC) + 1);
             END IF;
           WHEN OTHERS =>
             fetch_state         <= IDLE;
@@ -191,7 +275,6 @@ BEGIN
             cache_address       <= (OTHERS => '0');
             cache_valid         <= '0';
         END CASE;
-
       END IF;
     END IF;
   END PROCESS fetch;
@@ -200,20 +283,69 @@ BEGIN
   BEGIN
     IF rising_edge(refclk) THEN
       IF rst = '1' THEN
-        decoder_instruction <= (OTHERS => '0');
+
+      ELSE
+        execution_control <= decoder_control;
+        execution_rd_addr <= decoder_rd_addr;
+        IF decoder_control.alu_en = '1' THEN
+          -- ALU
+          opcode     <= decoder_control.opcode;
+          reg_addr_i <= decoder_rs1_addr;
+          operand_1  <= reg_data_out_i;
+          reg_addr_i <= decoder_rs2_addr;
+          operand_2  <= reg_data_out_i;
+          alu_valid  <= '1';
+        ELSIF decoder_control.branch = '1' OR decoder_control.jump = '1' THEN
+          -- ControlUnit
+          opcode <= decoder_control.opcode;
+
+          control_pc_in <= STD_LOGIC_VECTOR(resize(unsigned(PC), 32));
+
+          reg_addr_i  <= decoder_rs1_addr;
+          control_rs1 <= reg_data_out_i;
+          reg_addr_i  <= decoder_rs2_addr;
+          control_rs2 <= reg_data_out_i;
+
+          control_imm <= decoder_imm;
+
+          control_unit_enable <= '1';
+        END IF;
       END IF;
     END IF;
   END PROCESS decode;
 
-  execute : PROCESS (refclk)
+  execution : PROCESS (refclk)
   BEGIN
     IF rising_edge(refclk) THEN
       IF rst = '1' THEN
-
+        result_controller_enable  <= '0';
+        result_controller_result  <= (OTHERS => '0');
+        result_controller_rd_addr <= (OTHERS => '0');
+        pc_jump_flag              <= '0';
       ELSE
+        pc_jump_flag <= '0';
 
+        IF execution_control.reg_write = '1' THEN
+          result_controller_enable  <= '1';
+          result_controller_result  <= alu_result;
+          result_controller_rd_addr <= execution_rd_addr;
+        ELSIF control_jump = '1' AND (decoder_control.branch = '1' OR decoder_control.jump = '1') THEN
+          pc_jump_flag <= '1';
+          pc_jump_addr <= control_pc_out(11 DOWNTO 0);
+        END IF;
       END IF;
     END IF;
-  END PROCESS execute;
+  END PROCESS execution;
+
+  result : PROCESS (refclk)
+  BEGIN
+    IF rising_edge(refclk) THEN
+      IF rst = '1' THEN
+        result_controller_enable  <= '0';
+        result_controller_result  <= (OTHERS => '0');
+        result_controller_rd_addr <= (OTHERS => '0');
+      END IF;
+    END IF;
+  END PROCESS result;
 
 END ARCHITECTURE rtl;
