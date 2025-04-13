@@ -261,7 +261,7 @@ BEGIN
 
             IF cache_ready = '1' THEN
               cache_valid <= '1';
-              fetch_state <= WAIT_REQUEST_ACCEPT;
+              fetch_state <= WAIT_RESPONSE;
             END IF;
 
           WHEN WAIT_REQUEST_ACCEPT =>
@@ -274,7 +274,7 @@ BEGIN
           WHEN WAIT_RESPONSE =>
             pc_stall <= '1';
 
-            IF cache_ready = '1' THEN
+            IF cache_ready = '0' THEN
               fetch_state         <= IDLE;
               decoder_instruction <= cache_data;
               cache_valid         <= '0';

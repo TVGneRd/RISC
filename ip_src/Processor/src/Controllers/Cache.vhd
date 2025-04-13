@@ -120,17 +120,15 @@ BEGIN
 
       WHEN IDLE =>
         IF valid = '1' THEN
-          next_state <= CHECK_ADDR;
+          IF unsigned(address) <= unsigned(cache_upper_bound) AND unsigned(address) >= (unsigned(cache_upper_bound) - cache_size + 1) THEN
+            next_state           <= LOAD_DATA;
+          ELSE
+            next_state <= WAIT_END_TRANSACTION;
+          END IF;
         END IF;
 
       WHEN CHECK_ADDR =>
-        IF unsigned(address) <= unsigned(cache_upper_bound) AND unsigned(address) >= (unsigned(cache_upper_bound) - cache_size + 1) THEN
-          next_state           <= LOAD_DATA;
-        ELSE
-          next_state <= WAIT_END_TRANSACTION;
-        END IF;
-
-      WHEN LOAD_DATA =>
+      WHEN LOAD_DATA  =>
         IF valid = '0' THEN
           next_state <= IDLE;
         END IF;
@@ -180,7 +178,7 @@ BEGIN
           cache_data(to_integer((unsigned(address) + 2) MOD cache_size)) &                     -- Байт 2
           cache_data(to_integer((unsigned(address) + 1) MOD cache_size)) &                     -- Байт 1
           cache_data(to_integer(unsigned(address) MOD cache_size));                            -- Байт 0 (младший)
-        ready <= '1';
+        ready <= '0';
 
       WHEN WAIT_END_TRANSACTION =>
         AXI_1_read_addr  <= address;
