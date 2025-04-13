@@ -246,7 +246,7 @@ BEGIN
     transmit_word("00000101110000111001010001100011", '0'); -- bne x7, x28, test_failed
     transmit_word("01001000000100000000000011101111", '0'); -- j test_failed (100)
 
-    FOR i IN 5 * 8 TO 63 LOOP
+    FOR i IN 6 * 4 TO 63 LOOP
       IF i = 63 THEN
         axi_last := '1';
       END IF;
