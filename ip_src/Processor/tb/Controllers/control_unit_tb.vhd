@@ -60,6 +60,7 @@ ARCHITECTURE behavior OF control_unit_tb IS
                 ", jump=" & STD_LOGIC'image(actual_jump) & ")"
                 SEVERITY ERROR;
         END IF;
+        WAIT FOR 2 * EDGE_CLK;
     END PROCEDURE;
 
 BEGIN
@@ -88,8 +89,8 @@ BEGIN
         rs1    <= X"0000000A";
         rs2    <= X"0000000A";
         imm    <= X"00000004"; -- pc_out should be 0x10 (4*4)
-        pc_in  <= X"00000000";
-        verify_test("BEQ (equal)", X"00000010", '1', pc_out, jump);
+        pc_in  <= X"00000001";
+        verify_test("BEQ (equal)", X"00000005", '1', pc_out, jump);
 
         -- Test 2: BEQ when not equal
         rs1 <= X"0000000A";
