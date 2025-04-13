@@ -43,23 +43,22 @@ ARCHITECTURE behavioral OF ALU IS
   SIGNAL sign_reg   : STD_LOGIC;
   SIGNAL ready_reg  : STD_LOGIC;
 
-  SIGNAL op1_signed   : SIGNED(31 DOWNTO 0);
-  SIGNAL op2_signed   : SIGNED(31 DOWNTO 0);
-  SIGNAL op1_unsigned : UNSIGNED(31 DOWNTO 0);
-  SIGNAL op2_unsigned : UNSIGNED(31 DOWNTO 0);
-  SIGNAL shift_amount : INTEGER RANGE 0 TO 31;
-
 BEGIN
   -- Комбинационная логика
   comb_logic : PROCESS (refclk, opcode, operand_1, operand_2, valid)
     -- Используем сигналы вместо переменных для совместимости с VHDL-2002
+    VARIABLE op1_signed   : SIGNED(31 DOWNTO 0);
+    VARIABLE op2_signed   : SIGNED(31 DOWNTO 0);
+    VARIABLE op1_unsigned : UNSIGNED(31 DOWNTO 0);
+    VARIABLE op2_unsigned : UNSIGNED(31 DOWNTO 0);
+    VARIABLE shift_amount : INTEGER RANGE 0 TO 31;
   BEGIN
     -- Приведение типов
-    op1_signed   <= SIGNED(operand_1);
-    op2_signed   <= SIGNED(operand_2);
-    op1_unsigned <= UNSIGNED(operand_1);
-    op2_unsigned <= UNSIGNED(operand_2);
-    shift_amount <= to_integer(UNSIGNED(operand_2(4 DOWNTO 0)));
+    op1_signed   := SIGNED(operand_1);
+    op2_signed   := SIGNED(operand_2);
+    op1_unsigned := UNSIGNED(operand_1);
+    op2_unsigned := UNSIGNED(operand_2);
+    shift_amount := to_integer(UNSIGNED(operand_2(4 DOWNTO 0)));
 
     -- Вычисление операций
     add_result <= STD_LOGIC_VECTOR(op1_signed + op2_signed);
@@ -112,13 +111,13 @@ BEGIN
           result_comb <= sltu_result;
         WHEN OP_LUI =>
           result_comb <= lui_result;
-        WHEN OTHERS            =>
+        WHEN OTHERS =>
           result_comb <= result_comb;
       END CASE;
       ready_comb <= '1';
     ELSE
       --result_comb <= (OTHERS => '0');
-      ready_comb  <= '0';
+      ready_comb <= '0';
     END IF;
 
     -- Флаги
