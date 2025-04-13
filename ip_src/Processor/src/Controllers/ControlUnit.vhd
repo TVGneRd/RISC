@@ -3,7 +3,6 @@ LIBRARY IEEE;--! standard library IEEE (Institute of Electrical and Electronics 
 USE IEEE.std_logic_1164.ALL;--! standard unresolved logic UX01ZWLH-
 USE IEEE.numeric_std.ALL;--! for the signed, unsigned types and arithmetic ops
 USE work.riscv_opcodes_pkg.ALL;
-
 -- -- -- -- Задача блока: -- -- -- --
 -- 1. Выполнять переходы и системные функции
 ------------------------------------
