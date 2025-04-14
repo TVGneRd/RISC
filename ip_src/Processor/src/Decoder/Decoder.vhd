@@ -182,7 +182,7 @@ BEGIN
 
         -- I-тип (JALR)
       WHEN OP_JALR =>
-        ctrl.reg_write <= '1';
+        ctrl.reg_write <= '0';
         ctrl.jump      <= '1';
         ctrl.imm_type  <= IMM_I_TYPE;
 
@@ -198,15 +198,15 @@ BEGIN
 
         -- U-тип
       WHEN OP_LUI =>
-        ctrl.reg_write <= '1';
+        ctrl.reg_write <= '0';
         ctrl.imm_type  <= IMM_U_TYPE;
       WHEN OP_AUIPC =>
-        ctrl.reg_write <= '1';
+        ctrl.reg_write <= '0';
         ctrl.imm_type  <= IMM_U_TYPE;
 
         -- J-тип
       WHEN OP_JAL =>
-        ctrl.reg_write <= '1';
+        ctrl.reg_write <= '0';
         ctrl.jump      <= '1';
         ctrl.imm_type  <= IMM_J_TYPE;
 

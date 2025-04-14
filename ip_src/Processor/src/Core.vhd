@@ -353,13 +353,12 @@ BEGIN
         result_controller_rd_addr <= (OTHERS => '0');
         pc_jump_flag              <= '0';
       ELSE
-        pc_jump_flag <= '0';
-
         IF execution_control.reg_write = '1' THEN
+          pc_jump_flag              <= '0';
           result_controller_enable  <= '1';
           result_controller_result  <= alu_result;
           result_controller_rd_addr <= execution_rd_addr;
-        ELSIF control_jump = '1' AND (decoder_control.branch = '1' OR decoder_control.jump = '1') THEN
+        ELSIF control_jump = '1' AND (execution_control.branch = '1' OR execution_control.jump = '1') THEN
           pc_jump_flag <= '1';
           pc_jump_addr <= control_pc_out(11 DOWNTO 0);
         END IF;
