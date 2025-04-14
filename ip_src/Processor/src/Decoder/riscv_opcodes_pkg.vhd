@@ -64,6 +64,15 @@ PACKAGE riscv_opcodes_pkg IS
         OP_INVALID
     );
 
+    TYPE riscv_imm_type_t IS (
+        IMM_R_TYPE,
+        IMM_I_TYPE,
+        IMM_S_TYPE,
+        IMM_B_TYPE,
+        IMM_U_TYPE,
+        IMM_J_TYPE
+    );
+
     -- Функция для декодирования OPCODE из инструкции
     FUNCTION decode_opcode(instruction : STD_LOGIC_VECTOR(31 DOWNTO 0)) RETURN riscv_opcode_t;
 END PACKAGE riscv_opcodes_pkg;
