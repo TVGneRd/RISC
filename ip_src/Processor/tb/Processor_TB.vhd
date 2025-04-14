@@ -270,8 +270,8 @@ BEGIN
     transmit_word("00000001111000000000001100010011", '0'); -- addi x6, zero, 30
     transmit_word("00000000011000101000001110110011", '0'); -- add  x7, x5, x6
     transmit_word("00000011011100000000111000010011", '0'); -- addi x28, zero, 55
-    transmit_word("00000101110000111001010001100011", '0'); -- bne x7, x28, test_failed (40) 0x28
-    transmit_word("01001000000100000000000011101111", '0'); -- j test_completed (+295424) 0x48200
+    transmit_word("00000101110000111001010001100011", '0'); -- bne x7, x28, test_failed (+40) 0x28
+    transmit_word("00000010000000000000000011101111", '0'); -- j test_completed (+32) 0x20
 
     FOR i IN 6 * 4 TO 63 LOOP
       IF i = 63 THEN
@@ -289,8 +289,8 @@ BEGIN
     WAIT UNTIL M_AXI_ARVALID = '1' FOR 10 * EDGE_CLK;
     ASSERT M_AXI_ARVALID = '1' REPORT "M_AXI_ARVALID != '1'" SEVERITY ERROR;
 
-    -- PC(0x18) + 0xC80 * 4
-    ASSERT M_AXI_ARADDR = x"3218" REPORT "Program should have requested the address 0x190 (100*4)" SEVERITY ERROR;
+    -- PC(0x18) + 0x20 * 4
+    ASSERT M_AXI_ARADDR = x"98" REPORT "Program should have requested the address 0x98 (PC(0x18) + 0x20 * 4)" SEVERITY ERROR;
 
     core_test_completed <= '1';
 
