@@ -133,7 +133,7 @@ BEGIN
                 M_AXI_RREADY       <= '0';
                 read_last          <= '0';
                 update_read_data   <= true;
-                update_read_addr   <= false;
+                update_read_addr   <= true;
                 update_read_result <= true;
             WHEN wait_for_rvalid_rise =>
                 read_complete      <= '0';
