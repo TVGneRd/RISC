@@ -10,9 +10,9 @@
       <spirit:displayName>AXI</spirit:displayName>
       <spirit:busType spirit:vendor="xilinx.com" spirit:library="interface" spirit:name="aximm" spirit:version="1.0"/>
       <spirit:abstractionType spirit:vendor="xilinx.com" spirit:library="interface" spirit:name="aximm_rtl" spirit:version="1.0"/>
-      <spirit:master>
-        <spirit:addressSpaceRef spirit:addressSpaceRef="S_AXI"/>
-      </spirit:master>
+      <spirit:slave>
+        <spirit:memoryMapRef spirit:memoryMapRef="S_AXI"/>
+      </spirit:slave>
       <spirit:portMaps>
         <spirit:portMap>
           <spirit:logicalPort>
@@ -225,14 +225,6 @@
       </spirit:parameters>
     </spirit:busInterface>
   </spirit:busInterfaces>
-  <spirit:addressSpaces>
-    <spirit:addressSpace>
-      <spirit:name>S_AXI</spirit:name>
-      <spirit:displayName>S_AXI</spirit:displayName>
-      <spirit:range spirit:format="bitString" spirit:bitStringLength="13" spirit:minimum="4096" spirit:rangeType="long">0x1000</spirit:range>
-      <spirit:width spirit:format="long">8</spirit:width>
-    </spirit:addressSpace>
-  </spirit:addressSpaces>
   <spirit:memoryMaps>
     <spirit:memoryMap>
       <spirit:name>S_AXI</spirit:name>
@@ -740,12 +732,11 @@
       <xilinx:definitionSource>package_project</xilinx:definitionSource>
       <xilinx:vendorDisplayName>SUAI</xilinx:vendorDisplayName>
       <xilinx:coreRevision>1</xilinx:coreRevision>
-      <xilinx:coreCreationDateTime>2025-05-18T19:56:56Z</xilinx:coreCreationDateTime>
+      <xilinx:coreCreationDateTime>2025-05-18T20:09:25Z</xilinx:coreCreationDateTime>
     </xilinx:coreExtensions>
     <xilinx:packagingInfo>
       <xilinx:xilinxVersion>2022.2.2</xilinx:xilinxVersion>
-      <xilinx:checksum xilinx:scope="busInterfaces" xilinx:value="afd67551"/>
-      <xilinx:checksum xilinx:scope="addressSpaces" xilinx:value="d8366909"/>
+      <xilinx:checksum xilinx:scope="busInterfaces" xilinx:value="f17b8cd1"/>
       <xilinx:checksum xilinx:scope="memoryMaps" xilinx:value="150abebb"/>
       <xilinx:checksum xilinx:scope="fileGroups" xilinx:value="b8709390"/>
       <xilinx:checksum xilinx:scope="ports" xilinx:value="9a6fca64"/>
