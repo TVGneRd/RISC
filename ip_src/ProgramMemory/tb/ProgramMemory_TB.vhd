@@ -19,7 +19,23 @@ ARCHITECTURE behavior OF ProgramMemory_TOP_tb IS
       S_AXI_RRESP   : OUT STD_LOGIC_VECTOR(1 DOWNTO 0);
       S_AXI_RLAST   : OUT STD_LOGIC;
       S_AXI_RVALID  : OUT STD_LOGIC;
-      S_AXI_RREADY  : IN STD_LOGIC
+      S_AXI_RREADY  : IN STD_LOGIC;
+      -- Write channel
+      S_AXI_AWADDR  : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
+      S_AXI_AWLEN   : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+      S_AXI_AWVALID : IN STD_LOGIC;
+      S_AXI_AWREADY : OUT STD_LOGIC;
+
+      -- data channel signals
+      S_AXI_WDATA  : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+      S_AXI_WLAST  : IN STD_LOGIC;
+      S_AXI_WVALID : IN STD_LOGIC;
+      S_AXI_WREADY : OUT STD_LOGIC;
+
+      --New data from Dima
+      S_AXI_BRESP  : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
+      S_AXI_BVALID : IN STD_LOGIC;
+      S_AXI_BREADY : OUT STD_LOGIC
     );
   END COMPONENT;
 
@@ -38,6 +54,20 @@ ARCHITECTURE behavior OF ProgramMemory_TOP_tb IS
   SIGNAL S_AXI_RLAST   : STD_LOGIC;
   SIGNAL S_AXI_RVALID  : STD_LOGIC;
 
+  SIGNAL S_AXI_BRESP  : STD_LOGIC_VECTOR(1 DOWNTO 0) := "00";
+  SIGNAL S_AXI_BVALID : STD_LOGIC                    := '0';
+  SIGNAL S_AXI_BREADY : STD_LOGIC                    := '0';
+
+  SIGNAL S_AXI_AWADDR  : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL S_AXI_AWVALID : STD_LOGIC                     := '0';
+  SIGNAL S_AXI_AWREADY : STD_LOGIC                     := '0';
+  SIGNAL S_AXI_AWLEN   : STD_LOGIC_VECTOR(7 DOWNTO 0)  := (OTHERS => '0');
+
+  SIGNAL S_AXI_WDATA  : STD_LOGIC_VECTOR(7 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL S_AXI_WVALID : STD_LOGIC                    := '0';
+  SIGNAL S_AXI_WREADY : STD_LOGIC                    := '0';
+  SIGNAL S_AXI_WLAST  : STD_LOGIC                    := '0';
+
   -- Clock period definitions
   CONSTANT refclk_period : TIME := 4 ns; -- 250 MHz
 
@@ -54,7 +84,20 @@ BEGIN
     S_AXI_RRESP   => S_AXI_RRESP,
     S_AXI_RLAST   => S_AXI_RLAST,
     S_AXI_RVALID  => S_AXI_RVALID,
-    S_AXI_RREADY  => S_AXI_RREADY
+    S_AXI_RREADY  => S_AXI_RREADY,
+    S_AXI_BRESP   => S_AXI_BRESP,
+    S_AXI_BVALID  => S_AXI_BVALID,
+    S_AXI_BREADY  => S_AXI_BREADY,
+    S_AXI_AWADDR  => S_AXI_AWADDR,
+    S_AXI_AWLEN   => S_AXI_AWLEN,
+    S_AXI_AWVALID => S_AXI_AWVALID,
+    S_AXI_AWREADY => S_AXI_AWREADY,
+
+    S_AXI_WDATA  => S_AXI_WDATA,
+    S_AXI_WLAST  => S_AXI_WLAST,
+    S_AXI_WVALID => S_AXI_WVALID,
+    S_AXI_WREADY => S_AXI_WREADY
+
   );
 
   -- Clock process definitions
