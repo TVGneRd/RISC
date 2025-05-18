@@ -206,7 +206,7 @@ BEGIN
   END PROCESS;
 
   -- The state decides the output
-  output_decider : PROCESS (refclk, cur_state)
+  output_decider : PROCESS (refclk, cur_state, AXI_1_read_complete)
   BEGIN
     CASE cur_state IS
       WHEN rst_state              =>
@@ -248,7 +248,7 @@ BEGIN
         r_data           <= (OTHERS => '0');
         r_ready          <= '0';
 
-        IF falling_edge(refclk) AND AXI_1_read_complete = '1' THEN
+        IF rising_edge(AXI_1_read_complete) THEN
           cache_data(to_integer(unsigned(cache_pointer))) <= AXI_1_read_data;
           cache_pointer                                   <= STD_LOGIC_VECTOR(unsigned(cache_pointer) + 1);
           cache_upper_bound                               <= STD_LOGIC_VECTOR(unsigned(r_address) + unsigned(cache_pointer));
