@@ -36,9 +36,20 @@ ENTITY Core IS
     M_AXI_RRESP  : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
     M_AXI_RLAST  : IN STD_LOGIC;
     M_AXI_RVALID : IN STD_LOGIC;
-    M_AXI_RREADY : OUT STD_LOGIC
+    M_AXI_RREADY : OUT STD_LOGIC;
     -- /AXI-4 MM (Только Reader) Ports
 
+    M_AXI_AWADDR  : OUT STD_LOGIC_VECTOR(11 DOWNTO 0);
+    M_AXI_AWLEN   : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+    M_AXI_AWVALID : OUT STD_LOGIC;
+    M_AXI_AWREADY : IN STD_LOGIC;
+
+    -- Read data channel signals
+    M_AXI_WDATA  : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+    M_AXI_WRESP  : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
+    M_AXI_WLAST  : OUT STD_LOGIC; -- всегда 1
+    M_AXI_WVALID : OUT STD_LOGIC;
+    M_AXI_WREADY : IN STD_LOGIC
   );
 END ENTITY Core;
 
@@ -50,10 +61,15 @@ ARCHITECTURE rtl OF Core IS
   SIGNAL pc_jump_addr : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
 
   -- Cache
-  SIGNAL cache_address : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
-  SIGNAL cache_data    : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
-  SIGNAL cache_valid   : STD_LOGIC                     := '0';
-  SIGNAL cache_ready   : STD_LOGIC                     := '0';
+  SIGNAL r_cache_address : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL r_cache_data    : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL r_cache_valid   : STD_LOGIC                     := '0';
+  SIGNAL r_cache_ready   : STD_LOGIC                     := '0';
+
+  SIGNAL w_cache_address : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL w_cache_data    : STD_LOGIC_VECTOR(7 DOWNTO 0)  := (OTHERS => '0');
+  SIGNAL w_cache_valid   : STD_LOGIC                     := '0';
+  SIGNAL w_cache_ready   : STD_LOGIC                     := '0';
   -- /Cache
 
   -- Decoder
@@ -135,10 +151,15 @@ BEGIN
       rst    => rst,
 
       -- Порты для взаимодействия с ядром процессором, через него возвращаются данные из кэша
-      address => cache_address,
-      data    => cache_data,
-      valid   => cache_valid,
-      ready   => cache_ready,
+      r_address => r_cache_address,
+      r_data    => r_cache_data,
+      r_valid   => r_cache_valid,
+      r_ready   => r_cache_ready,
+
+      w_address => w_cache_address,
+      w_data    => w_cache_data,
+      w_valid   => w_cache_valid,
+      w_ready   => w_cache_ready,
 
       -- AXI-4 MM (Только Reader) Ports
       --  Read address channel signals
@@ -152,7 +173,18 @@ BEGIN
       M_AXI_RRESP  => M_AXI_RRESP,
       M_AXI_RLAST  => M_AXI_RLAST,
       M_AXI_RVALID => M_AXI_RVALID,
-      M_AXI_RREADY => M_AXI_RREADY
+      M_AXI_RREADY => M_AXI_RREADY,
+
+      M_AXI_AWADDR  => M_AXI_AWADDR,
+      M_AXI_AWLEN   => M_AXI_AWLEN,
+      M_AXI_AWVALID => M_AXI_AWVALID,
+      M_AXI_AWREADY => M_AXI_AWREADY,
+
+      M_AXI_WDATA  => M_AXI_WDATA,
+      M_AXI_WRESP  => M_AXI_WRESP,
+      M_AXI_WLAST  => M_AXI_WLAST,
+      M_AXI_WVALID => M_AXI_WVALID,
+      M_AXI_WREADY => M_AXI_WREADY
     );
 
   registers : ENTITY work.Registers
@@ -261,43 +293,43 @@ BEGIN
         CASE fetch_state IS
           WHEN IDLE =>
             fetch_state         <= REQUEST;
-            cache_address       <= PC;
+            r_cache_address     <= PC;
             decoder_instruction <= (OTHERS => '0');
-            cache_valid         <= '0';
+            r_cache_valid       <= '0';
             pc_stall            <= '0';
 
           WHEN REQUEST =>
             fetch_state         <= REQUEST;
-            cache_address       <= PC;
+            r_cache_address     <= PC;
             decoder_instruction <= (OTHERS => '0');
             pc_stall            <= '1';
 
-            IF cache_ready = '1' THEN
-              cache_valid <= '1';
-              fetch_state <= WAIT_REQUEST_ACCEPT;
+            IF r_cache_ready = '1' THEN
+              r_cache_valid <= '1';
+              fetch_state   <= WAIT_REQUEST_ACCEPT;
             END IF;
 
           WHEN WAIT_REQUEST_ACCEPT =>
             pc_stall <= '1';
 
-            IF cache_ready = '0' THEN
+            IF r_cache_ready = '0' THEN
               fetch_state <= WAIT_RESPONSE;
             END IF;
 
           WHEN WAIT_RESPONSE =>
             pc_stall <= '1';
 
-            IF cache_ready = '1' THEN
+            IF r_cache_ready = '1' THEN
               fetch_state         <= IDLE;
-              decoder_instruction <= cache_data;
-              cache_valid         <= '0';
+              decoder_instruction <= r_cache_data;
+              r_cache_valid       <= '0';
             END IF;
 
           WHEN OTHERS =>
             fetch_state         <= IDLE;
             decoder_instruction <= (OTHERS => '0');
-            cache_address       <= (OTHERS => '0');
-            cache_valid         <= '0';
+            r_cache_address     <= (OTHERS => '0');
+            r_cache_valid       <= '0';
             pc_stall            <= '1';
 
         END CASE;

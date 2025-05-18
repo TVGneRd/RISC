@@ -31,6 +31,17 @@ ARCHITECTURE rtl OF Processor_TB IS
   SIGNAL M_AXI_RVALID  : STD_LOGIC                     := '0';
   SIGNAL M_AXI_RREADY  : STD_LOGIC                     := '0';
 
+  SIGNAL M_AXI_AWADDR  : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL M_AXI_AWVALID : STD_LOGIC                     := '0';
+  SIGNAL M_AXI_AWREADY : STD_LOGIC                     := '0';
+  SIGNAL M_AXI_AWLEN   : STD_LOGIC_VECTOR(7 DOWNTO 0)  := (OTHERS => '0');
+
+  SIGNAL M_AXI_WDATA  : STD_LOGIC_VECTOR(7 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL M_AXI_WVALID : STD_LOGIC                    := '0';
+  SIGNAL M_AXI_WREADY : STD_LOGIC                    := '0';
+  SIGNAL M_AXI_WRESP  : STD_LOGIC_VECTOR(1 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL M_AXI_WLAST  : STD_LOGIC                    := '0';
+
   COMPONENT Processor_TOP IS
     PORT (
       refclk : IN STD_LOGIC; --! reference clock expect 250Mhz
@@ -48,8 +59,20 @@ ARCHITECTURE rtl OF Processor_TB IS
       M_AXI_RRESP  : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
       M_AXI_RLAST  : IN STD_LOGIC;
       M_AXI_RVALID : IN STD_LOGIC;
-      M_AXI_RREADY : OUT STD_LOGIC
+      M_AXI_RREADY : OUT STD_LOGIC;
       -- /AXI-4 MM (Только Reader) Ports
+
+      M_AXI_AWADDR  : OUT STD_LOGIC_VECTOR(11 DOWNTO 0);
+      M_AXI_AWLEN   : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+      M_AXI_AWVALID : OUT STD_LOGIC;
+      M_AXI_AWREADY : IN STD_LOGIC;
+
+      -- Read data channel signals
+      M_AXI_WDATA  : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+      M_AXI_WRESP  : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
+      M_AXI_WLAST  : OUT STD_LOGIC; -- всегда 1
+      M_AXI_WVALID : OUT STD_LOGIC;
+      M_AXI_WREADY : IN STD_LOGIC
     );
   END COMPONENT;
 
@@ -135,7 +158,16 @@ BEGIN
     M_AXI_RRESP   => M_AXI_RRESP,
     M_AXI_RLAST   => M_AXI_RLAST,
     M_AXI_RVALID  => M_AXI_RVALID,
-    M_AXI_RREADY  => M_AXI_RREADY
+    M_AXI_RREADY  => M_AXI_RREADY,
+    M_AXI_AWADDR  => M_AXI_AWADDR,
+    M_AXI_AWVALID => M_AXI_AWVALID,
+    M_AXI_AWREADY => M_AXI_AWREADY,
+    M_AXI_AWLEN   => M_AXI_AWLEN,
+    M_AXI_WDATA   => M_AXI_WDATA,
+    M_AXI_WVALID  => M_AXI_WVALID,
+    M_AXI_WREADY  => M_AXI_WREADY,
+    M_AXI_WRESP   => M_AXI_WRESP,
+    M_AXI_WLAST   => M_AXI_WLAST
   );
 
   test_completed <= decoder_test_completed = '1'
