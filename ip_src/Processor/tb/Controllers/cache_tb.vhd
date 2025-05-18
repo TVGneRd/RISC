@@ -51,10 +51,13 @@ ARCHITECTURE behavior OF cache_tb IS
 
             -- Read data channel signals
             M_AXI_WDATA  : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
-            M_AXI_WRESP  : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
             M_AXI_WLAST  : OUT STD_LOGIC; -- всегда 1
             M_AXI_WVALID : OUT STD_LOGIC;
-            M_AXI_WREADY : IN STD_LOGIC
+            M_AXI_WREADY : IN STD_LOGIC;
+
+            M_AXI_BRESP  : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
+            M_AXI_BVALID : IN STD_LOGIC;
+            M_AXI_BREADY : OUT STD_LOGIC
         );
     END COMPONENT;
 
@@ -87,8 +90,11 @@ ARCHITECTURE behavior OF cache_tb IS
     SIGNAL M_AXI_WDATA  : STD_LOGIC_VECTOR(7 DOWNTO 0) := (OTHERS => '0');
     SIGNAL M_AXI_WVALID : STD_LOGIC                    := '0';
     SIGNAL M_AXI_WREADY : STD_LOGIC                    := '0';
-    SIGNAL M_AXI_WRESP  : STD_LOGIC_VECTOR(1 DOWNTO 0) := (OTHERS => '0');
     SIGNAL M_AXI_WLAST  : STD_LOGIC                    := '0';
+
+    SIGNAL M_AXI_BRESP  : STD_LOGIC_VECTOR(1 DOWNTO 0) := "00";
+    SIGNAL M_AXI_BVALID : STD_LOGIC                    := '0';
+    SIGNAL M_AXI_BREADY : STD_LOGIC                    := '0';
 BEGIN
     -- Instantiate the Unit Under Test (UUT)
     uut : Cache
@@ -125,10 +131,13 @@ BEGIN
         M_AXI_AWREADY => M_AXI_AWREADY,
 
         M_AXI_WDATA  => M_AXI_WDATA,
-        M_AXI_WRESP  => M_AXI_WRESP,
         M_AXI_WLAST  => M_AXI_WLAST,
         M_AXI_WVALID => M_AXI_WVALID,
-        M_AXI_WREADY => M_AXI_WREADY
+        M_AXI_WREADY => M_AXI_WREADY,
+
+        M_AXI_BRESP  => M_AXI_BRESP,
+        M_AXI_BVALID => M_AXI_BVALID,
+        M_AXI_BREADY => M_AXI_BREADY
     );
 
     -- Stimulus process

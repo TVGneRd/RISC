@@ -42,8 +42,11 @@ ENTITY axi4_writer IS
         M_AXI_WDATA  : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
         M_AXI_WVALID : OUT STD_LOGIC;
         M_AXI_WREADY : IN STD_LOGIC;
-        M_AXI_WRESP  : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
-        M_AXI_WLAST  : OUT STD_LOGIC
+        M_AXI_WLAST  : OUT STD_LOGIC;
+
+        M_AXI_BRESP  : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
+        M_AXI_BVALID : IN STD_LOGIC;
+        M_AXI_BREADY : OUT STD_LOGIC
     );
 END axi4_writer;
 
@@ -55,17 +58,21 @@ ARCHITECTURE Behavioral OF axi4_writer IS
 
     SIGNAL write_addr_read : BOOLEAN := false;
     SIGNAL write_data_read : BOOLEAN := false;
+    SIGNAL bresp_read      : BOOLEAN := false;
 
 BEGIN
 
-    data_safe : PROCESS (clk, rst, write_addr_read, write_data_read)
+    data_safe : PROCESS (clk, rst, write_addr_read, write_data_read, bresp_read)
         VARIABLE write_addr_safe : STD_LOGIC_VECTOR(write_addr'RANGE);
         VARIABLE write_data_safe : STD_LOGIC_VECTOR(write_data'RANGE);
+        VARIABLE bresp_safe      : STD_LOGIC_VECTOR(M_AXI_BRESP'RANGE);
+        VARIABLE shift_modifier  : NATURAL;
         VARIABLE wdata_reg       : STD_LOGIC_VECTOR(M_AXI_WDATA'RANGE);
     BEGIN
         IF rst = '0' THEN
             write_addr_safe := (OTHERS => '0');
             write_data_safe := (OTHERS => '0');
+            bresp_safe      := (OTHERS => '0');
         ELSIF rising_edge(clk) THEN
             IF write_addr_read THEN
                 write_addr_safe := write_addr;
@@ -73,12 +80,18 @@ BEGIN
             IF write_data_read THEN
                 write_data_safe := write_data;
             END IF;
+            IF bresp_read THEN
+                bresp_safe := M_AXI_BRESP;
+            END IF;
         END IF;
+
+        shift_modifier := 0;
 
         wdata_reg := write_data_safe;
 
         M_AXI_AWADDR <= write_addr_safe;
-        M_AXI_WDATA  <= STD_LOGIC_VECTOR(unsigned(wdata_reg));
+        M_AXI_WDATA  <= STD_LOGIC_VECTOR(shift_left(unsigned(wdata_reg), shift_modifier * 8));
+        write_result <= bresp_safe;
 
     END PROCESS;
 
@@ -91,7 +104,7 @@ BEGIN
         END IF;
     END PROCESS;
 
-    state_decider : PROCESS (cur_state, write_start, M_AXI_AWREADY, M_AXI_WREADY)
+    state_decider : PROCESS (cur_state, write_start, M_AXI_AWREADY, M_AXI_WREADY, M_AXI_BVALID)
     BEGIN
         next_state <= cur_state;
         CASE cur_state IS
@@ -110,7 +123,9 @@ BEGIN
                     next_state <= assert_bready;
                 END IF;
             WHEN assert_bready =>
-                next_state <= wait_for_start;
+                IF M_AXI_BVALID = '1' THEN
+                    next_state <= wait_for_start;
+                END IF;
         END CASE;
     END PROCESS;
 
@@ -118,43 +133,46 @@ BEGIN
     BEGIN
         CASE cur_state IS
             WHEN rst_state =>
+                bresp_read      <= false;
+                M_AXI_BREADY    <= '0';
                 write_complete  <= '0';
                 write_addr_read <= false;
                 M_AXI_AWVALID   <= '0';
                 write_data_read <= false;
                 M_AXI_WVALID    <= '0';
-                write_result    <= "00";
             WHEN wait_for_start =>
+                bresp_read      <= false;
+                M_AXI_BREADY    <= '0';
                 write_complete  <= '1';
                 write_addr_read <= true;
                 M_AXI_AWVALID   <= '0';
                 write_data_read <= true;
                 M_AXI_WVALID    <= '0';
-                write_result    <= "00";
 
             WHEN wait_for_awready =>
+                bresp_read      <= true;
+                M_AXI_BREADY    <= '0';
                 write_complete  <= '0';
                 write_addr_read <= false;
                 M_AXI_AWVALID   <= '1';
                 write_data_read <= true;
                 M_AXI_WVALID    <= '0';
-                write_result    <= "00";
-
             WHEN wait_for_wready =>
+                bresp_read      <= true;
+                M_AXI_BREADY    <= '0';
                 write_complete  <= '0';
                 write_addr_read <= true;
                 M_AXI_AWVALID   <= '0';
                 write_data_read <= false;
                 M_AXI_WVALID    <= '1';
-                write_result    <= "00";
-
             WHEN assert_bready =>
+                bresp_read      <= true;
+                M_AXI_BREADY    <= '1';
                 write_complete  <= '0';
                 write_addr_read <= true;
                 M_AXI_AWVALID   <= '0';
                 write_data_read <= true;
                 M_AXI_WVALID    <= '0';
-                write_result    <= M_AXI_WRESP;
         END CASE;
         M_AXI_AWLEN <= (OTHERS => '0');
         M_AXI_WLAST <= '1';

@@ -60,11 +60,14 @@ ENTITY Cache IS
 
     -- Read data channel signals
     M_AXI_WDATA  : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
-    M_AXI_WRESP  : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
     M_AXI_WLAST  : OUT STD_LOGIC; -- всегда 1
     M_AXI_WVALID : OUT STD_LOGIC;
-    M_AXI_WREADY : IN STD_LOGIC
+    M_AXI_WREADY : IN STD_LOGIC;
     -- /AXI-4 MM (Writer) Ports
+
+    M_AXI_BRESP  : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
+    M_AXI_BVALID : IN STD_LOGIC;
+    M_AXI_BREADY : OUT STD_LOGIC
   );
 END ENTITY Cache;
 ARCHITECTURE rtl OF Cache IS
@@ -149,8 +152,11 @@ BEGIN
       M_AXI_WDATA  => M_AXI_WDATA,
       M_AXI_WVALID => M_AXI_WVALID,
       M_AXI_WREADY => M_AXI_WREADY,
-      M_AXI_WRESP  => M_AXI_WRESP,
-      M_AXI_WLAST  => M_AXI_WLAST
+      M_AXI_WLAST  => M_AXI_WLAST,
+
+      M_AXI_BRESP  => M_AXI_BRESP,
+      M_AXI_BVALID => M_AXI_BVALID,
+      M_AXI_BREADY => M_AXI_BREADY
     );
 
   -- Handles the cur_state variable
