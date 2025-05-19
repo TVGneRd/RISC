@@ -73,7 +73,8 @@ END ENTITY Cache;
 ARCHITECTURE rtl OF Cache IS
   CONSTANT cash_size : INTEGER := 64;
 
-  TYPE state_type IS (rst_state, IDLE, CHECK_ADDR, LOAD_DATA, WAIT_END_TRANSACTION); -- WRITE_CACHE,
+  TYPE state_type IS (rst_state, IDLE, CHECK_ADDR, LOAD_DATA, WAIT_END_TRANSACTION,
+    WRITE_CACHE, WRITE_MEMORY); -- WRITE_CACHE + WRITE_MEMORY,
   SIGNAL cur_state  : state_type := rst_state;
   SIGNAL next_state : state_type := rst_state;
 
@@ -106,6 +107,12 @@ ARCHITECTURE rtl OF Cache IS
     OTHERS => (OTHERS => '0')
   );
 
+  --didn't used
+  SIGNAL write_pending   : BOOLEAN                       := false;
+  SIGNAL write_cache_hit : BOOLEAN                       := false;
+  SIGNAL write_address   : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL write_data      : STD_LOGIC_VECTOR(7 DOWNTO 0)  := (OTHERS => '0');
+  --
 BEGIN
   reader : ENTITY work.axi4_reader
     PORT MAP(
