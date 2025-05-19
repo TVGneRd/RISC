@@ -234,52 +234,103 @@ BEGIN
   END PROCESS;
 
   -- The state decides the output
-  output_decider : PROCESS (refclk, cur_state, AXI_1_read_complete)
+  output_decider : PROCESS (refclk, cur_state, AXI_1_read_complete, AXI_1_write_complete)
   BEGIN
     CASE cur_state IS
-      WHEN rst_state              =>
-        AXI_1_read_addr  <= (OTHERS => '0');
-        AXI_1_read_len   <= (OTHERS => '0');
-        AXI_1_read_start <= '0';
-        r_data           <= (OTHERS => '0');
-        r_ready          <= '0';
-        cache_pointer    <= (OTHERS => '0');
-      WHEN IDLE                   =>
-        AXI_1_read_addr  <= (OTHERS => '0');
-        AXI_1_read_len   <= (OTHERS => '0');
-        AXI_1_read_start <= '0';
-        r_data           <= (OTHERS => '0');
-        r_ready          <= '1';
-        cache_pointer    <= (OTHERS => '0');
-      WHEN CHECK_ADDR             =>
-        AXI_1_read_addr  <= (OTHERS => '0');
-        AXI_1_read_len   <= (OTHERS => '0');
-        AXI_1_read_start <= '0';
-        r_data           <= (OTHERS => '0');
-        r_ready          <= '0';
-        cache_pointer    <= (OTHERS => '0');
+      WHEN rst_state               =>
+        AXI_1_read_addr   <= (OTHERS => '0');
+        AXI_1_read_len    <= (OTHERS => '0');
+        AXI_1_read_start  <= '0';
+        AXI_1_write_addr  <= (OTHERS => '0');
+        AXI_1_write_data  <= (OTHERS => '0');
+        AXI_1_write_start <= '0';
+        r_data            <= (OTHERS => '0');
+        r_ready           <= '0';
+        w_ready           <= '0';
+        cache_pointer     <= (OTHERS => '0');
+      WHEN IDLE                    =>
+        AXI_1_read_addr   <= (OTHERS => '0');
+        AXI_1_read_len    <= (OTHERS => '0');
+        AXI_1_read_start  <= '0';
+        AXI_1_write_addr  <= (OTHERS => '0');
+        AXI_1_write_data  <= (OTHERS => '0');
+        AXI_1_write_start <= '0';
+        r_data            <= (OTHERS => '0');
+        r_ready           <= '1';
+        w_ready           <= '1';
+        cache_pointer     <= (OTHERS => '0');
+      WHEN CHECK_ADDR              =>
+        AXI_1_read_addr   <= (OTHERS => '0');
+        AXI_1_read_len    <= (OTHERS => '0');
+        AXI_1_read_start  <= '0';
+        AXI_1_write_addr  <= (OTHERS => '0');
+        AXI_1_write_data  <= (OTHERS => '0');
+        AXI_1_write_start <= '0';
+        r_data            <= (OTHERS => '0');
+        r_ready           <= '0';
+        w_ready           <= '0';
+        cache_pointer     <= (OTHERS => '0');
 
-      WHEN LOAD_DATA              =>
-        AXI_1_read_addr  <= (OTHERS => '0');
-        AXI_1_read_len   <= (OTHERS => '0');
-        AXI_1_read_start <= '0';
-        r_data           <= cache_data(to_integer((unsigned(r_address) + 3) MOD cache_size)) & -- Байт 3 (старший)
-          cache_data(to_integer((unsigned(r_address) + 2) MOD cache_size)) &                     -- Байт 2
-          cache_data(to_integer((unsigned(r_address) + 1) MOD cache_size)) &                     -- Байт 1
-          cache_data(to_integer(unsigned(r_address) MOD cache_size));                            -- Байт 0 (младший)
+      WHEN LOAD_DATA               =>
+        AXI_1_read_addr   <= (OTHERS => '0');
+        AXI_1_read_len    <= (OTHERS => '0');
+        AXI_1_read_start  <= '0';
+        AXI_1_write_addr  <= (OTHERS => '0');
+        AXI_1_write_data  <= (OTHERS => '0');
+        AXI_1_write_start <= '0';
+        r_data            <= cache_data(to_integer((unsigned(r_address) + 3) MOD cache_size)) & -- Байт 3 (старший)
+          cache_data(to_integer((unsigned(r_address) + 2) MOD cache_size)) &                      -- Байт 2
+          cache_data(to_integer((unsigned(r_address) + 1) MOD cache_size)) &                      -- Байт 1
+          cache_data(to_integer(unsigned(r_address) MOD cache_size));                             -- Байт 0 (младший)
         r_ready <= '1';
+        w_ready <= '1';
 
       WHEN WAIT_END_TRANSACTION =>
-        AXI_1_read_addr  <= r_address;
-        AXI_1_read_len   <= STD_LOGIC_VECTOR(to_unsigned(cache_size, 8));
-        AXI_1_read_start <= '1';
-        r_data           <= (OTHERS => '0');
-        r_ready          <= '0';
+        AXI_1_read_addr   <= r_address;
+        AXI_1_read_len    <= STD_LOGIC_VECTOR(to_unsigned(cache_size, 8));
+        AXI_1_read_start  <= '1';
+        AXI_1_write_addr  <= (OTHERS => '0');
+        AXI_1_write_data  <= (OTHERS => '0');
+        AXI_1_write_start <= '0';
+        r_data            <= (OTHERS => '0');
+        r_ready           <= '0';
+        w_ready           <= '0';
 
         IF rising_edge(AXI_1_read_complete) THEN
           cache_data(to_integer(unsigned(cache_pointer))) <= AXI_1_read_data;
           cache_pointer                                   <= STD_LOGIC_VECTOR(unsigned(cache_pointer) + 1);
           cache_upper_bound                               <= STD_LOGIC_VECTOR(unsigned(r_address) + unsigned(cache_pointer));
+        END IF;
+
+      WHEN WRITE_CACHE =>
+        -- Update cache if address is in cache range
+        IF unsigned(w_address)                                     <= unsigned(cache_upper_bound) AND
+          unsigned(w_address)                                        <= unsigned(cache_upper_bound) - cache_size + 1 THEN
+          cache_data(to_integer(unsigned(w_address) MOD cache_size)) <= w_data;
+        END IF;
+
+        -- Prepare memory write in any case (write-through policy)
+        AXI_1_write_addr  <= w_address;
+        AXI_1_write_data  <= w_data;
+        AXI_1_write_start <= '1';
+
+        AXI_1_read_addr  <= (OTHERS => '0');
+        AXI_1_read_len   <= (OTHERS => '0');
+        AXI_1_read_start <= '0';
+        r_data           <= (OTHERS => '0');
+        r_ready          <= '0';
+        w_ready          <= '0';
+        next_state       <= WRITE_MEMORY;
+
+      WHEN WRITE_MEMORY =>
+        AXI_1_write_start <= '0'; -- Deassert after one cycle
+        r_data            <= (OTHERS => '0');
+        r_ready           <= '0';
+
+        IF AXI_1_write_complete = '1' THEN
+          w_ready <= '1';
+        ELSE
+          w_ready <= '0';
         END IF;
     END CASE;
 
