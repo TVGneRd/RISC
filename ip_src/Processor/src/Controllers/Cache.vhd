@@ -177,7 +177,8 @@ BEGIN
   END PROCESS;
 
   -- handles the next_state variable
-  state_transmission : PROCESS (refclk, cur_state)
+  state_transmission : PROCESS (refclk, cur_state, r_valid, w_valid,
+    AXI_1_read_complete, AXI_1_write_complete)
   BEGIN
     next_state <= cur_state;
     CASE cur_state IS
@@ -185,7 +186,9 @@ BEGIN
         next_state <= IDLE;
 
       WHEN IDLE =>
-        IF r_valid = '1' THEN
+        IF w_valid = '1' THEN
+          next_state <= WRITE_CACHE;
+        ELSIF r_valid = '1' THEN
           next_state <= CHECK_ADDR;
         END IF;
 
@@ -197,7 +200,9 @@ BEGIN
         END IF;
 
       WHEN LOAD_DATA =>
-        IF r_valid = '0' THEN
+        IF w_valid = '1' THEN
+          next_state <= WRITE_CACHE;
+        ELSIF r_valid = '0' THEN
           next_state <= IDLE;
         END IF;
 
@@ -208,6 +213,22 @@ BEGIN
           ELSE
             next_state <= WAIT_END_TRANSACTION;
           END IF;
+        END IF;
+
+      WHEN WRITE_CACHE =>
+        -- Check if address is in cache
+        IF unsigned(w_address) <= unsigned(cache_upper_bound) AND
+          unsigned(w_address) >= (unsigned(cache_upper_bound) - cache_size + 1) THEN
+          -- Address is in cache, update cache
+          next_state <= IDLE;
+        ELSE
+          -- Address not in cache, write directly to memory
+          next_state <= WRITE_MEMORY;
+        END IF;
+
+      WHEN WRITE_MEMORY =>
+        IF AXI_1_write_complete = '1' THEN
+          next_state <= IDLE;
         END IF;
     END CASE;
   END PROCESS;
