@@ -320,7 +320,6 @@ BEGIN
         r_data           <= (OTHERS => '0');
         r_ready          <= '0';
         w_ready          <= '0';
-        next_state       <= WRITE_MEMORY;
 
       WHEN WRITE_MEMORY =>
         AXI_1_write_start <= '0'; -- Deassert after one cycle
