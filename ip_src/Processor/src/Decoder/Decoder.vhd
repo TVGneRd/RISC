@@ -198,7 +198,7 @@ BEGIN
 
         -- U-тип
       WHEN OP_LUI =>
-        ctrl.reg_write <= '0';
+        ctrl.reg_write <= '1';
         ctrl.imm_type  <= IMM_U_TYPE;
       WHEN OP_AUIPC =>
         ctrl.reg_write <= '0';
@@ -206,7 +206,7 @@ BEGIN
 
         -- J-тип
       WHEN OP_JAL =>
-        ctrl.reg_write <= '0';
+        ctrl.reg_write <= '1';
         ctrl.jump      <= '1';
         ctrl.imm_type  <= IMM_J_TYPE;
 
