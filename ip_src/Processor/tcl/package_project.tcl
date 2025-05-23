@@ -9,6 +9,13 @@ set_property vendor SUAI [ipx::current_core]
 set_property description {Program memory} [ipx::current_core]
 set_property vendor_display_name SUAI [ipx::current_core]
 
+ipx::add_bus_interface refclk [ipx::current_core]
+set_property abstraction_type_vlnv xilinx.com:signal:clock_rtl:1.0 [ipx::get_bus_interfaces refclk -of_objects [ipx::current_core]]
+set_property bus_type_vlnv xilinx.com:signal:clock:1.0 [ipx::get_bus_interfaces refclk -of_objects [ipx::current_core]]
+ipx::add_bus_parameter FREQ_HZ [ipx::get_bus_interfaces refclk -of_objects [ipx::current_core]]
+ipx::add_port_map CLK [ipx::get_bus_interfaces refclk -of_objects [ipx::current_core]]
+set_property physical_name refclk [ipx::get_port_maps CLK -of_objects [ipx::get_bus_interfaces refclk -of_objects [ipx::current_core]]]
+
 ipx::add_bus_interface M_AXI [ipx::current_core]
 set_property abstraction_type_vlnv xilinx.com:interface:aximm_rtl:1.0 [ipx::get_bus_interfaces M_AXI -of_objects [ipx::current_core]]
 set_property bus_type_vlnv xilinx.com:interface:aximm:1.0 [ipx::get_bus_interfaces M_AXI -of_objects [ipx::current_core]]
@@ -60,10 +67,11 @@ set_property physical_name M_AXI_RDATA [ipx::get_port_maps RDATA -of_objects [ip
 set_property name M_AXI [ipx::get_bus_interfaces M_AXI -of_objects [ipx::current_core]]
 set_property display_name AXI [ipx::get_bus_interfaces M_AXI -of_objects [ipx::current_core]]
 
+ipx::associate_bus_interfaces -busif M_AXI -clock refclk [ipx::current_core]
+
 ipx::merge_project_changes hdl_parameters [ipx::current_core]
 ipx::update_checksums [ipx::current_core]
 ipx::save_core [ipx::current_core]
-ipx::add_bus_interface refclk [ipx::current_core]
 set_property abstraction_type_vlnv xilinx.com:signal:clock_rtl:1.0 [ipx::get_bus_interfaces refclk -of_objects [ipx::current_core]]
 set_property bus_type_vlnv xilinx.com:signal:clock:1.0 [ipx::get_bus_interfaces refclk -of_objects [ipx::current_core]]
 ipx::add_bus_parameter FREQ_HZ [ipx::get_bus_interfaces refclk -of_objects [ipx::current_core]]

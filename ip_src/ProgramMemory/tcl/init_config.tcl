@@ -10,4 +10,5 @@ set SIM_DIR tb
 set CNSTR_DIR cnstr
 set SIM_TOP_FILE_NAME ProgramMemory_TB
 set TOP_FILE_NAME ProgramMemory_TOP
+start_gui
 source   -notrace  tcl/make_prj.tcl

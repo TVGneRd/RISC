@@ -17,6 +17,16 @@ PACKAGE riscv_opcodes_pkg IS
         OP_OR,   -- OR (funct3 = 110, funct7 = 0000000)
         OP_AND,  -- AND (funct3 = 111, funct7 = 0000000)
 
+        -- Расширение M (умножение и деление)
+        OP_MUL,    -- MUL (funct3 = 000, funct7 = 0000001)
+        OP_MULH,   -- MULH (funct3 = 001, funct7 = 0000001)
+        OP_MULHSU, -- MULHSU (funct3 = 010, funct7 = 0000001)
+        OP_MULHU,  -- MULHU (funct3 = 011, funct7 = 0000001)
+        OP_DIV,    -- DIV (funct3 = 100, funct7 = 0000001)
+        OP_DIVU,   -- DIVU (funct3 = 101, funct7 = 0000001)
+        OP_REM,    -- REM (funct3 = 110, funct7 = 0000001)
+        OP_REMU,   -- REMU (funct3 = 111, funct7 = 0000001)
+
         -- I-тип (OPCODE = 0010011 для арифметики, 0000011 для загрузки, 1100111 для JALR)
         OP_ADDI,  -- ADDI (funct3 = 000, OPCODE = 0010011)
         OP_SLTI,  -- SLTI (funct3 = 010, OPCODE = 0010011)
@@ -132,6 +142,21 @@ PACKAGE BODY riscv_opcodes_pkg IS
 
                 -- I-тип (арифметика, OPCODE = 0010011)
             WHEN "0010011" =>
+                -- Сначала проверяем расширение M (funct7 = 0000001)
+                IF funct7 = "0000001" THEN
+                    CASE funct3 IS
+                        WHEN "000"  => RETURN OP_MUL;
+                        WHEN "001"  => RETURN OP_MULH;
+                        WHEN "010"  => RETURN OP_MULHSU;
+                        WHEN "011"  => RETURN OP_MULHU;
+                        WHEN "100"  => RETURN OP_DIV;
+                        WHEN "101"  => RETURN OP_DIVU;
+                        WHEN "110"  => RETURN OP_REM;
+                        WHEN "111"  => RETURN OP_REMU;
+                        WHEN OTHERS => RETURN OP_INVALID;
+                    END CASE;
+                END IF;
+
                 CASE funct3 IS
                     WHEN "000" => RETURN OP_ADDI;
                     WHEN "010" => RETURN OP_SLTI;
