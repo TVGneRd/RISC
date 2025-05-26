@@ -47,6 +47,22 @@ BEGIN
     VARIABLE sltu_result : STD_LOGIC_VECTOR(31 DOWNTO 0);
     VARIABLE lui_result  : STD_LOGIC_VECTOR(31 DOWNTO 0);
 
+    -- Переменные для операций умножения и деления
+    VARIABLE mul_result    : STD_LOGIC_VECTOR(31 DOWNTO 0);
+    VARIABLE mulh_result   : STD_LOGIC_VECTOR(31 DOWNTO 0);
+    VARIABLE mulhsu_result : STD_LOGIC_VECTOR(31 DOWNTO 0);
+    VARIABLE mulhu_result  : STD_LOGIC_VECTOR(31 DOWNTO 0);
+    VARIABLE div_result    : STD_LOGIC_VECTOR(31 DOWNTO 0);
+    VARIABLE divu_result   : STD_LOGIC_VECTOR(31 DOWNTO 0);
+    VARIABLE rem_result    : STD_LOGIC_VECTOR(31 DOWNTO 0);
+    VARIABLE remu_result   : STD_LOGIC_VECTOR(31 DOWNTO 0);
+    
+    VARIABLE op2_signed_positive : SIGNED(31 DOWNTO 0);
+    
+    -- Временные переменные для 64-битных промежуточных результатов
+    VARIABLE temp64_signed   : SIGNED(63 DOWNTO 0);
+    VARIABLE temp64_unsigned : UNSIGNED(63 DOWNTO 0);
+
     VARIABLE result_reg : STD_LOGIC_VECTOR(31 DOWNTO 0);
     VARIABLE zero_reg   : STD_LOGIC;
     VARIABLE sign_reg   : STD_LOGIC;
@@ -85,6 +101,57 @@ BEGIN
 
     lui_result := operand_1;
 
+    -- Вычисление операций умножения и деления (расширение M)
+    -- MUL: умножение младших 32 бит (знаковое × знаковое)
+    temp64_signed := op1_signed * op2_signed;
+    mul_result    := STD_LOGIC_VECTOR(temp64_signed(31 DOWNTO 0));
+
+    -- MULH: старшие 32 бита произведения (знаковое × знаковое)
+    mulh_result := STD_LOGIC_VECTOR(temp64_signed(63 DOWNTO 32));
+
+    -- MULHSU: старшие 32 бита произведения (знаковое × беззнаковое)
+--    temp64_signed := op1_signed * SIGNED('0' & op2_unsigned);
+--    mulhsu_result := STD_LOGIC_VECTOR(temp64_signed(63 DOWNTO 32));
+    op2_signed_positive := SIGNED(op2_unsigned);
+    temp64_signed := op1_signed * op2_signed_positive;
+    mulhsu_result := STD_LOGIC_VECTOR(temp64_signed(63 DOWNTO 32));
+
+    -- MULHU: старшие 32 бита произведения (беззнаковое × беззнаковое)
+    temp64_unsigned := op1_unsigned * op2_unsigned;
+    mulhu_result    := STD_LOGIC_VECTOR(temp64_unsigned(63 DOWNTO 32));
+
+    -- DIV: деление (знаковое)
+    IF op2_signed = 0 THEN
+      div_result := (OTHERS => '1'); -- Деление на 0: возвращаем все единицы
+    ELSIF op1_signed =- 2147483648 AND op2_signed =- 1 THEN
+      div_result := X"80000000"; -- Особый случай переполнения
+    ELSE
+      div_result := STD_LOGIC_VECTOR(op1_signed / op2_signed);
+    END IF;
+
+    -- DIVU: деление (беззнаковое)
+    IF op2_unsigned = 0 THEN
+      divu_result := (OTHERS => '1'); -- Деление на 0: возвращаем все единицы
+    ELSE
+      divu_result := STD_LOGIC_VECTOR(op1_unsigned / op2_unsigned);
+    END IF;
+
+    -- REM: остаток от деления (знаковый)
+    IF op2_signed = 0 THEN
+      rem_result := operand_1; -- При делении на 0 возвращаем делимое
+    ELSIF op1_signed =- 2147483648 AND op2_signed =- 1 THEN
+      rem_result := (OTHERS => '0'); -- Особый случай переполнения
+    ELSE
+      rem_result := STD_LOGIC_VECTOR(op1_signed REM op2_signed);
+    END IF;
+
+    -- REMU: остаток от деления (беззнаковый)
+    IF op2_unsigned = 0 THEN
+      remu_result := operand_1; -- При делении на 0 возвращаем делимое
+    ELSE
+      remu_result := STD_LOGIC_VECTOR(op1_unsigned REM op2_unsigned);
+    END IF;
+
     -- Выбор результата
     IF enable = '1' THEN
       CASE opcode IS
@@ -110,6 +177,25 @@ BEGIN
           result_comb <= sltu_result;
         WHEN OP_LUI =>
           result_comb <= lui_result;
+
+          -- Операции умножения и деления (расширение M)
+        WHEN OP_MUL =>
+          result_comb <= mul_result;
+        WHEN OP_MULH =>
+          result_comb <= mulh_result;
+        WHEN OP_MULHSU =>
+          result_comb <= mulhsu_result;
+        WHEN OP_MULHU =>
+          result_comb <= mulhu_result;
+        WHEN OP_DIV =>
+          result_comb <= div_result;
+        WHEN OP_DIVU =>
+          result_comb <= divu_result;
+        WHEN OP_REM =>
+          result_comb <= rem_result;
+        WHEN OP_REMU =>
+          result_comb <= remu_result;
+
         WHEN OTHERS =>
           result_comb <= result_comb;
       END CASE;
