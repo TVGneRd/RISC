@@ -73,10 +73,15 @@ END ENTITY Cache;
 ARCHITECTURE rtl OF Cache IS
   CONSTANT cash_size : INTEGER := 64;
 
-  TYPE state_type IS (rst_state, IDLE, CHECK_ADDR, LOAD_DATA, WAIT_END_TRANSACTION,
-    WRITE_CACHE, WRITE_MEMORY); -- WRITE_CACHE + WRITE_MEMORY,
-  SIGNAL cur_state  : state_type := rst_state;
-  SIGNAL next_state : state_type := rst_state;
+  TYPE r_state_type IS (R_RESET, R_IDLE, R_CHECK_ADDR, R_LOAD_DATA, R_WAIT_END_TRANSACTION);
+
+  TYPE w_state_type IS (W_RESET, W_IDLE, W_WRITE_CACHE, W_WRITE_MEMORY);
+
+  SIGNAL r_cur_state  : r_state_type := R_RESET;
+  SIGNAL r_next_state : r_state_type := R_RESET;
+
+  SIGNAL w_cur_state  : w_state_type := W_RESET;
+  SIGNAL w_next_state : w_state_type := W_RESET;
 
   SIGNAL update_read_data   : BOOLEAN                       := false;
   SIGNAL update_read_addr   : BOOLEAN                       := false;
@@ -108,10 +113,10 @@ ARCHITECTURE rtl OF Cache IS
   );
 
   --didn't used
-  SIGNAL write_pending   : BOOLEAN                       := false;
-  SIGNAL write_cache_hit : BOOLEAN                       := false;
-  SIGNAL write_address   : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
-  SIGNAL write_data      : STD_LOGIC_VECTOR(7 DOWNTO 0)  := (OTHERS => '0');
+  SIGNAL write_pending     : BOOLEAN                       := false;
+  SIGNAL W_WRITE_CACHE_hit : BOOLEAN                       := false;
+  SIGNAL write_address     : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL write_data        : STD_LOGIC_VECTOR(7 DOWNTO 0)  := (OTHERS => '0');
   --
 BEGIN
   reader : ENTITY work.axi4_reader
@@ -166,165 +171,165 @@ BEGIN
       M_AXI_BREADY => M_AXI_BREADY
     );
 
-  -- Handles the cur_state variable
+  -- Handles the r_cur_state variable
   sync_proc : PROCESS (refclk, rst)
   BEGIN
     IF rst = '1' THEN
-      cur_state <= rst_state;
+      r_cur_state <= R_RESET;
+      w_cur_state <= W_RESET;
     ELSIF rising_edge(refclk) THEN
-      cur_state <= next_state;
+      r_cur_state <= r_next_state;
+      w_cur_state <= w_next_state;
     END IF;
   END PROCESS;
 
-  -- handles the next_state variable
-  state_transmission : PROCESS (refclk, cur_state, r_valid, w_valid,
-    AXI_1_read_complete, AXI_1_write_complete)
+  -- handles the r_next_state variable
+  r_state_transmission : PROCESS (refclk, r_cur_state, r_valid, AXI_1_read_complete)
   BEGIN
-    next_state <= cur_state;
-    CASE cur_state IS
-      WHEN rst_state =>
-        next_state <= IDLE;
+    r_next_state <= r_cur_state;
 
-      WHEN IDLE =>
-        IF w_valid = '1' THEN
-          next_state <= WRITE_CACHE;
-        ELSIF r_valid = '1' THEN
-          next_state <= CHECK_ADDR;
+    CASE r_cur_state IS
+      WHEN R_RESET =>
+        r_next_state <= R_IDLE;
+
+      WHEN R_IDLE =>
+        IF r_valid = '1' THEN
+          r_next_state <= R_CHECK_ADDR;
         END IF;
 
-      WHEN CHECK_ADDR =>
+      WHEN R_CHECK_ADDR =>
         IF unsigned(r_address) <= unsigned(cache_upper_bound) AND unsigned(r_address) >= (unsigned(cache_upper_bound) - cache_size + 1) THEN
-          next_state             <= LOAD_DATA;
+          r_next_state           <= R_LOAD_DATA;
         ELSE
-          next_state <= WAIT_END_TRANSACTION;
+          r_next_state <= R_WAIT_END_TRANSACTION;
         END IF;
 
-      WHEN LOAD_DATA =>
-        IF w_valid = '1' THEN
-          next_state <= WRITE_CACHE;
-        ELSIF r_valid = '0' THEN
-          next_state <= IDLE;
+      WHEN R_LOAD_DATA =>
+        IF r_valid = '0' THEN
+          r_next_state <= R_IDLE;
         END IF;
 
-      WHEN WAIT_END_TRANSACTION =>
+      WHEN R_WAIT_END_TRANSACTION =>
         IF AXI_1_read_complete = '1' THEN
           IF AXI_1_read_last = '1' THEN
-            next_state <= LOAD_DATA;
+            r_next_state <= R_LOAD_DATA;
           ELSE
-            next_state <= WAIT_END_TRANSACTION;
+            r_next_state <= R_WAIT_END_TRANSACTION;
           END IF;
-        END IF;
-
-      WHEN WRITE_CACHE =>
-        -- Check if address is in cache
-        IF unsigned(w_address) <= unsigned(cache_upper_bound) AND
-          unsigned(w_address) >= (unsigned(cache_upper_bound) - cache_size + 1) THEN
-          -- Address is in cache, update cache
-          next_state <= IDLE;
-        ELSE
-          -- Address not in cache, write directly to memory
-          next_state <= WRITE_MEMORY;
-        END IF;
-
-      WHEN WRITE_MEMORY =>
-        IF AXI_1_write_complete = '1' THEN
-          next_state <= IDLE;
         END IF;
     END CASE;
   END PROCESS;
 
-  -- The state decides the output
-  output_decider : PROCESS (refclk, cur_state, AXI_1_read_complete, AXI_1_write_complete)
+  -- handles the r_next_state variable
+  w_state_transmission : PROCESS (refclk, w_cur_state, w_valid, AXI_1_write_complete)
   BEGIN
-    CASE cur_state IS
-      WHEN rst_state               =>
-        AXI_1_read_addr   <= (OTHERS => '0');
-        AXI_1_read_len    <= (OTHERS => '0');
-        AXI_1_read_start  <= '0';
-        AXI_1_write_addr  <= (OTHERS => '0');
-        AXI_1_write_data  <= (OTHERS => '0');
-        AXI_1_write_start <= '0';
-        r_data            <= (OTHERS => '0');
-        r_ready           <= '0';
-        w_ready           <= '0';
-        cache_pointer     <= (OTHERS => '0');
-      WHEN IDLE                    =>
-        AXI_1_read_addr   <= (OTHERS => '0');
-        AXI_1_read_len    <= (OTHERS => '0');
-        AXI_1_read_start  <= '0';
-        AXI_1_write_addr  <= (OTHERS => '0');
-        AXI_1_write_data  <= (OTHERS => '0');
-        AXI_1_write_start <= '0';
-        r_data            <= (OTHERS => '0');
-        r_ready           <= '1';
-        w_ready           <= '1';
-        cache_pointer     <= (OTHERS => '0');
-      WHEN CHECK_ADDR              =>
-        AXI_1_read_addr   <= (OTHERS => '0');
-        AXI_1_read_len    <= (OTHERS => '0');
-        AXI_1_read_start  <= '0';
-        AXI_1_write_addr  <= (OTHERS => '0');
-        AXI_1_write_data  <= (OTHERS => '0');
-        AXI_1_write_start <= '0';
-        r_data            <= (OTHERS => '0');
-        r_ready           <= '0';
-        w_ready           <= '0';
-        cache_pointer     <= (OTHERS => '0');
+    w_next_state <= w_cur_state;
+    CASE w_cur_state IS
+      WHEN W_RESET =>
+        w_next_state <= W_IDLE;
 
-      WHEN LOAD_DATA               =>
-        AXI_1_read_addr   <= (OTHERS => '0');
-        AXI_1_read_len    <= (OTHERS => '0');
-        AXI_1_read_start  <= '0';
-        AXI_1_write_addr  <= (OTHERS => '0');
-        AXI_1_write_data  <= (OTHERS => '0');
-        AXI_1_write_start <= '0';
-        r_data            <= cache_data(to_integer((unsigned(r_address) + 3) MOD cache_size)) & -- Байт 3 (старший)
-          cache_data(to_integer((unsigned(r_address) + 2) MOD cache_size)) &                      -- Байт 2
-          cache_data(to_integer((unsigned(r_address) + 1) MOD cache_size)) &                      -- Байт 1
-          cache_data(to_integer(unsigned(r_address) MOD cache_size));                             -- Байт 0 (младший)
-        r_ready <= '1';
-        w_ready <= '1';
-
-      WHEN WAIT_END_TRANSACTION =>
-        AXI_1_read_addr   <= r_address;
-        AXI_1_read_len    <= STD_LOGIC_VECTOR(to_unsigned(cache_size, 8));
-        AXI_1_read_start  <= '1';
-        AXI_1_write_addr  <= (OTHERS => '0');
-        AXI_1_write_data  <= (OTHERS => '0');
-        AXI_1_write_start <= '0';
-        r_data            <= (OTHERS => '0');
-        r_ready           <= '0';
-        w_ready           <= '0';
-
-        IF rising_edge(AXI_1_read_complete) THEN
-          cache_data(to_integer(unsigned(cache_pointer))) <= AXI_1_read_data;
-          cache_pointer                                   <= STD_LOGIC_VECTOR(unsigned(cache_pointer) + 1);
-          cache_upper_bound                               <= STD_LOGIC_VECTOR(unsigned(r_address) + unsigned(cache_pointer));
+      WHEN W_IDLE =>
+        IF w_valid = '1' THEN
+          w_next_state <= W_WRITE_CACHE;
         END IF;
 
-      WHEN WRITE_CACHE =>
-        -- Update cache if address is in cache range
-        IF unsigned(w_address)                                     <= unsigned(cache_upper_bound) AND
-          unsigned(w_address)                                        <= unsigned(cache_upper_bound) - cache_size + 1 THEN
-          cache_data(to_integer(unsigned(w_address) MOD cache_size)) <= w_data;
+      WHEN W_WRITE_CACHE =>
+        -- Check if address is in cache
+        IF unsigned(w_address) <= unsigned(cache_upper_bound) AND
+          unsigned(w_address) >= (unsigned(cache_upper_bound) - cache_size + 1) THEN
+          -- Address is in cache, update cache
+          w_next_state <= W_IDLE;
+        ELSE
+          -- Address not in cache, write directly to memory
+          w_next_state <= W_WRITE_MEMORY;
         END IF;
 
-        -- Prepare memory write in any case (write-through policy)
-        AXI_1_write_addr  <= w_address;
-        AXI_1_write_data  <= w_data;
-        AXI_1_write_start <= '1';
+      WHEN W_WRITE_MEMORY =>
+        IF AXI_1_write_complete = '1' THEN
+          w_next_state <= W_IDLE;
+        END IF;
 
+    END CASE;
+  END PROCESS;
+
+  -- The state decides the output
+  r_output_decider : PROCESS (refclk, r_cur_state, AXI_1_read_complete)
+  BEGIN
+    CASE r_cur_state IS
+      WHEN R_RESET                =>
         AXI_1_read_addr  <= (OTHERS => '0');
         AXI_1_read_len   <= (OTHERS => '0');
         AXI_1_read_start <= '0';
         r_data           <= (OTHERS => '0');
         r_ready          <= '0';
-        w_ready          <= '0';
+        cache_pointer    <= (OTHERS => '0');
+      WHEN R_IDLE                 =>
+        AXI_1_read_addr  <= (OTHERS => '0');
+        AXI_1_read_len   <= (OTHERS => '0');
+        AXI_1_read_start <= '0';
+        r_data           <= (OTHERS => '0');
+        r_ready          <= '1';
+        cache_pointer    <= (OTHERS => '0');
+      WHEN R_CHECK_ADDR           =>
+        AXI_1_read_addr  <= (OTHERS => '0');
+        AXI_1_read_len   <= (OTHERS => '0');
+        AXI_1_read_start <= '0';
+        r_data           <= (OTHERS => '0');
+        r_ready          <= '0';
+        cache_pointer    <= (OTHERS => '0');
 
-      WHEN WRITE_MEMORY =>
+      WHEN R_LOAD_DATA            =>
+        AXI_1_read_addr  <= (OTHERS => '0');
+        AXI_1_read_len   <= (OTHERS => '0');
+        AXI_1_read_start <= '0';
+        r_data           <= cache_data(to_integer((unsigned(r_address) + 3) MOD cache_size)) & -- Байт 3 (старший)
+          cache_data(to_integer((unsigned(r_address) + 2) MOD cache_size)) &                     -- Байт 2
+          cache_data(to_integer((unsigned(r_address) + 1) MOD cache_size)) &                     -- Байт 1
+          cache_data(to_integer(unsigned(r_address) MOD cache_size));                            -- Байт 0 (младший)
+        r_ready <= '1';
+
+      WHEN R_WAIT_END_TRANSACTION =>
+        AXI_1_read_addr  <= r_address;
+        AXI_1_read_len   <= STD_LOGIC_VECTOR(to_unsigned(cache_size, 8));
+        AXI_1_read_start <= '1';
+        r_data           <= (OTHERS => '0');
+        r_ready          <= '0';
+
+        IF rising_edge(AXI_1_read_complete) THEN
+          cache_pointer     <= STD_LOGIC_VECTOR(unsigned(cache_pointer) + 1);
+          cache_upper_bound <= STD_LOGIC_VECTOR(unsigned(r_address) + unsigned(cache_pointer));
+        END IF;
+
+    END CASE;
+
+  END PROCESS;
+
+  -- The state decides the output
+  w_output_decider : PROCESS (refclk, w_cur_state, AXI_1_write_complete)
+  BEGIN
+    CASE w_cur_state IS
+      WHEN W_RESET                 =>
+        AXI_1_write_addr  <= (OTHERS => '0');
+        AXI_1_write_data  <= (OTHERS => '0');
+        AXI_1_write_start <= '0';
+        w_ready           <= '0';
+
+      WHEN W_IDLE                  =>
+        AXI_1_write_addr  <= (OTHERS => '0');
+        AXI_1_write_data  <= (OTHERS => '0');
+        AXI_1_write_start <= '0';
+        w_ready           <= '1';
+
+      WHEN W_WRITE_CACHE =>
+        -- Prepare memory write in any case (write-through policy)
+        AXI_1_write_addr  <= w_address;
+        AXI_1_write_data  <= w_data;
+        AXI_1_write_start <= '1';
+
+        w_ready <= '0';
+
+      WHEN W_WRITE_MEMORY =>
         AXI_1_write_start <= '0'; -- Deassert after one cycle
-        r_data            <= (OTHERS => '0');
-        r_ready           <= '0';
 
         IF AXI_1_write_complete = '1' THEN
           w_ready <= '1';
@@ -334,4 +339,22 @@ BEGIN
     END CASE;
 
   END PROCESS;
+  write_cache : PROCESS (w_cur_state, r_cur_state, AXI_1_read_complete)
+  BEGIN
+
+    IF w_cur_state = W_WRITE_CACHE THEN
+      IF unsigned(w_address)                                     <= unsigned(cache_upper_bound) AND
+        unsigned(w_address)                                        <= unsigned(cache_upper_bound) - cache_size + 1 THEN
+        cache_data(to_integer(unsigned(w_address) MOD cache_size)) <= w_data;
+      END IF;
+    END IF;
+
+    IF r_cur_state = R_WAIT_END_TRANSACTION THEN
+      IF rising_edge(AXI_1_read_complete) THEN
+        cache_data(to_integer(unsigned(cache_pointer))) <= AXI_1_read_data;
+      END IF;
+    END IF;
+
+  END PROCESS;
+
 END ARCHITECTURE rtl;
