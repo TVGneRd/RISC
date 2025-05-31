@@ -206,7 +206,7 @@ BEGIN
 
         -- J-тип
       WHEN OP_JAL =>
-        ctrl.reg_write <= '1';
+        ctrl.reg_write <= '0';
         ctrl.jump      <= '1';
         ctrl.imm_type  <= IMM_J_TYPE;
 

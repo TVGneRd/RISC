@@ -294,7 +294,7 @@ BEGIN
         expected_imm        => STD_LOGIC_VECTOR(to_signed(32, 32)),
         expected_opcode     => OP_JAL,
         expected_alu_en     => '0',
-        expected_reg_write  => '1',
+        expected_reg_write  => '0',
         expected_mem_read   => '0',
         expected_mem_write  => '0',
         expected_mem_to_reg => '0',
