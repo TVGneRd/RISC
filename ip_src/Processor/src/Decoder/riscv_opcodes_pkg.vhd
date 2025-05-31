@@ -96,7 +96,7 @@ PACKAGE BODY riscv_opcodes_pkg IS
         VARIABLE imm12                     : STD_LOGIC_VECTOR(11 DOWNTO 0) := instruction(31 DOWNTO 20);
     BEGIN
         CASE opcode IS
-                -- R-тип (OPCODE = 0110011)
+                -- R-тип и M-тип (OPCODE = 0110011) 
             WHEN "0110011" =>
                 CASE funct3 IS
                     WHEN "000" =>
@@ -140,9 +140,7 @@ PACKAGE BODY riscv_opcodes_pkg IS
                     WHEN OTHERS => RETURN OP_INVALID;
                 END CASE;
 
-                -- I-тип (арифметика, OPCODE = 0010011)
-            WHEN "0010011" =>
-                -- Сначала проверяем расширение M (funct7 = 0000001)
+                -- проверяем расширение M (funct7 = 0000001)
                 IF funct7 = "0000001" THEN
                     CASE funct3 IS
                         WHEN "000"  => RETURN OP_MUL;
@@ -157,6 +155,8 @@ PACKAGE BODY riscv_opcodes_pkg IS
                     END CASE;
                 END IF;
 
+                -- I-тип (арифметика, OPCODE = 0010011)
+            WHEN "0010011" =>
                 CASE funct3 IS
                     WHEN "000" => RETURN OP_ADDI;
                     WHEN "010" => RETURN OP_SLTI;
@@ -233,7 +233,6 @@ PACKAGE BODY riscv_opcodes_pkg IS
                         RETURN OP_EBREAK;
                     END IF;
                 END IF;
-
                 -- Некорректный OPCODE
             WHEN OTHERS => RETURN OP_INVALID;
         END CASE;
