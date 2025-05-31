@@ -21,10 +21,10 @@ END ENTITY ALU;
 
 ARCHITECTURE behavioral OF ALU IS
   -- Внутренние сигналы для комбинационных результатов
-  SIGNAL result_comb : STD_LOGIC_VECTOR(31 DOWNTO 0);
-  SIGNAL zero_comb   : STD_LOGIC;
-  SIGNAL sign_comb   : STD_LOGIC;
-  SIGNAL ready_comb  : STD_LOGIC;
+  SIGNAL result_comb : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL zero_comb   : STD_LOGIC                     := '0';
+  SIGNAL sign_comb   : STD_LOGIC                     := '0';
+  SIGNAL ready_comb  : STD_LOGIC                     := '0';
 BEGIN
   -- Комбинационная логика
   comb_logic : PROCESS (refclk, opcode, operand_1, operand_2, enable)
@@ -56,9 +56,9 @@ BEGIN
     VARIABLE divu_result   : STD_LOGIC_VECTOR(31 DOWNTO 0);
     VARIABLE rem_result    : STD_LOGIC_VECTOR(31 DOWNTO 0);
     VARIABLE remu_result   : STD_LOGIC_VECTOR(31 DOWNTO 0);
-    
+
     VARIABLE op2_signed_positive : SIGNED(31 DOWNTO 0);
-    
+
     -- Временные переменные для 64-битных промежуточных результатов
     VARIABLE temp64_signed   : SIGNED(63 DOWNTO 0);
     VARIABLE temp64_unsigned : UNSIGNED(63 DOWNTO 0);
@@ -110,11 +110,11 @@ BEGIN
     mulh_result := STD_LOGIC_VECTOR(temp64_signed(63 DOWNTO 32));
 
     -- MULHSU: старшие 32 бита произведения (знаковое × беззнаковое)
---    temp64_signed := op1_signed * SIGNED('0' & op2_unsigned);
---    mulhsu_result := STD_LOGIC_VECTOR(temp64_signed(63 DOWNTO 32));
+    --    temp64_signed := op1_signed * SIGNED('0' & op2_unsigned);
+    --    mulhsu_result := STD_LOGIC_VECTOR(temp64_signed(63 DOWNTO 32));
     op2_signed_positive := SIGNED(op2_unsigned);
-    temp64_signed := op1_signed * op2_signed_positive;
-    mulhsu_result := STD_LOGIC_VECTOR(temp64_signed(63 DOWNTO 32));
+    temp64_signed       := op1_signed * op2_signed_positive;
+    mulhsu_result       := STD_LOGIC_VECTOR(temp64_signed(63 DOWNTO 32));
 
     -- MULHU: старшие 32 бита произведения (беззнаковое × беззнаковое)
     temp64_unsigned := op1_unsigned * op2_unsigned;
