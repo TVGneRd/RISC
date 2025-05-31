@@ -57,6 +57,8 @@ BEGIN
             WHEN wait_for_start =>
                 IF read_start = '1' AND M_AXI_ARREADY = '1' THEN
                     next_state <= assert_arvalid;
+                ELSE
+                    next_state <= wait_for_start;
                 END IF;
             WHEN assert_arvalid =>
                 IF M_AXI_ARREADY = '0' THEN
@@ -81,7 +83,6 @@ BEGIN
         VARIABLE read_data_store   : STD_LOGIC_VECTOR(M_AXI_RDATA'RANGE);
         VARIABLE read_addr_store   : STD_LOGIC_VECTOR(read_addr'left DOWNTO 0);
         VARIABLE read_result_store : STD_LOGIC_VECTOR(read_result'RANGE);
-        VARIABLE shift_modifier    : NATURAL;
     BEGIN
         IF rst = '1' THEN
             read_data_store   := (OTHERS => '0');
@@ -99,9 +100,7 @@ BEGIN
             END IF;
         END IF;
 
-        shift_modifier := 0;
-
-        read_data    <= read_data_store(read_data'left + shift_modifier * 8 DOWNTO shift_modifier * 8);
+        read_data    <= read_data_store;
         read_result  <= read_result_store;
         M_AXI_ARADDR <= read_addr_store;
 

@@ -2,6 +2,7 @@
 LIBRARY IEEE;--! standard library IEEE (Institute of Electrical and Electronics Engineers)
 USE IEEE.std_logic_1164.ALL;--! standard unresolved logic UX01ZWLH-
 USE IEEE.numeric_std.ALL;--! for the signed, unsigned types and arithmetic ops
+USE IEEE.std_logic_textio.ALL; -- если используете to_hstring
 
 ENTITY Processor_TB IS
   GENERIC (
@@ -330,11 +331,11 @@ BEGIN
     M_AXI_RLAST   <= '0';
     M_AXI_ARREADY <= '1';
 
-    WAIT UNTIL M_AXI_ARVALID = '1' FOR 10 * EDGE_CLK;
+    WAIT UNTIL M_AXI_ARVALID = '1' FOR 6 * 2 * EDGE_CLK; -- На выполнение команды дается 6 тактов 
     ASSERT M_AXI_ARVALID = '1' REPORT "M_AXI_ARVALID != '1'" SEVERITY ERROR;
 
     -- PC(0x18) + 0x20 * 4
-    ASSERT M_AXI_ARADDR = x"98" REPORT "Program should have requested the address 0x98 (PC(0x18) + 0x20 * 4)" SEVERITY ERROR;
+    ASSERT M_AXI_ARADDR = x"98" REPORT "Program should have requested the address 0x98 (PC(0x18) + 0x20 * 4) is " & to_hstring(to_bitvector(M_AXI_ARADDR)) SEVERITY ERROR;
 
     core_test_completed <= '1';
 

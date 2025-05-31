@@ -71,8 +71,6 @@ ENTITY Cache IS
   );
 END ENTITY Cache;
 ARCHITECTURE rtl OF Cache IS
-  CONSTANT cash_size : INTEGER := 64;
-
   TYPE r_state_type IS (R_RESET, R_IDLE, R_CHECK_ADDR, R_LOAD_DATA, R_WAIT_END_TRANSACTION);
 
   TYPE w_state_type IS (W_RESET, W_IDLE, W_WRITE_CACHE, W_WRITE_MEMORY);
@@ -87,7 +85,7 @@ ARCHITECTURE rtl OF Cache IS
   SIGNAL update_read_addr   : BOOLEAN                       := false;
   SIGNAL update_read_result : BOOLEAN                       := false;
   SIGNAL AXI_1_read_addr    : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
-  SIGNAL AXI_1_read_len     : STD_LOGIC_VECTOR(7 DOWNTO 0)  := STD_LOGIC_VECTOR(to_unsigned(cash_size, 8));
+  SIGNAL AXI_1_read_len     : STD_LOGIC_VECTOR(7 DOWNTO 0)  := STD_LOGIC_VECTOR(to_unsigned(cache_size, 8));
   SIGNAL AXI_1_read_data    : STD_LOGIC_VECTOR(7 DOWNTO 0)  := (OTHERS => '0');
 
   SIGNAL AXI_1_read_start    : STD_LOGIC := '0';
@@ -96,7 +94,7 @@ ARCHITECTURE rtl OF Cache IS
   SIGNAL AXI_1_read_result   : STD_LOGIC_VECTOR(1 DOWNTO 0);
 
   SIGNAL AXI_1_write_addr : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
-  SIGNAL AXI_1_write_len  : STD_LOGIC_VECTOR(7 DOWNTO 0)  := STD_LOGIC_VECTOR(to_unsigned(cash_size, 8));
+  SIGNAL AXI_1_write_len  : STD_LOGIC_VECTOR(7 DOWNTO 0)  := STD_LOGIC_VECTOR(to_unsigned(cache_size, 8));
   SIGNAL AXI_1_write_data : STD_LOGIC_VECTOR(7 DOWNTO 0)  := (OTHERS => '0');
 
   SIGNAL AXI_1_write_start    : STD_LOGIC := '0';
@@ -107,7 +105,7 @@ ARCHITECTURE rtl OF Cache IS
   SIGNAL cache_upper_bound : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
   SIGNAL cache_pointer     : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
 
-  TYPE cache_data_type IS ARRAY (0 TO cash_size - 1) OF STD_LOGIC_VECTOR(7 DOWNTO 0);
+  TYPE cache_data_type IS ARRAY (0 TO cache_size - 1) OF STD_LOGIC_VECTOR(7 DOWNTO 0);
   SIGNAL cache_data : cache_data_type := (
     OTHERS => (OTHERS => '0')
   );
@@ -289,11 +287,16 @@ BEGIN
         r_ready <= '1';
 
       WHEN R_WAIT_END_TRANSACTION =>
-        AXI_1_read_addr  <= r_address;
-        AXI_1_read_len   <= STD_LOGIC_VECTOR(to_unsigned(cache_size, 8));
-        AXI_1_read_start <= '1';
-        r_data           <= (OTHERS => '0');
-        r_ready          <= '0';
+        AXI_1_read_addr <= r_address;
+        AXI_1_read_len  <= STD_LOGIC_VECTOR(to_unsigned(cache_size, 8));
+        IF AXI_1_read_complete = '1' THEN
+          AXI_1_read_start <= '0';
+        ELSE
+          AXI_1_read_start <= '1';
+        END IF;
+
+        r_data  <= (OTHERS => '0');
+        r_ready <= '0';
 
         IF rising_edge(AXI_1_read_complete) THEN
           cache_pointer     <= STD_LOGIC_VECTOR(unsigned(cache_pointer) + 1);

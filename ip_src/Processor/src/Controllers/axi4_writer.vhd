@@ -65,7 +65,6 @@ BEGIN
         VARIABLE write_addr_safe : STD_LOGIC_VECTOR(write_addr'RANGE);
         VARIABLE write_data_safe : STD_LOGIC_VECTOR(write_data'RANGE);
         VARIABLE bresp_safe      : STD_LOGIC_VECTOR(M_AXI_BRESP'RANGE);
-        VARIABLE shift_modifier  : NATURAL;
         VARIABLE wdata_reg       : STD_LOGIC_VECTOR(M_AXI_WDATA'RANGE);
     BEGIN
         IF rst = '1' THEN
@@ -83,13 +82,10 @@ BEGIN
                 bresp_safe := M_AXI_BRESP;
             END IF;
         END IF;
-
-        shift_modifier := 0;
-
         wdata_reg := write_data_safe;
 
         M_AXI_AWADDR <= write_addr_safe;
-        M_AXI_WDATA  <= STD_LOGIC_VECTOR(shift_left(unsigned(wdata_reg), shift_modifier * 8));
+        M_AXI_WDATA  <= wdata_reg;
         write_result <= bresp_safe;
 
     END PROCESS;
