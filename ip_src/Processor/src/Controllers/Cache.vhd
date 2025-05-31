@@ -71,7 +71,7 @@ ENTITY Cache IS
   );
 END ENTITY Cache;
 ARCHITECTURE rtl OF Cache IS
-  TYPE r_state_type IS (R_RESET, R_IDLE, R_CHECK_ADDR, R_LOAD_DATA, R_WAIT_END_TRANSACTION);
+  TYPE r_state_type IS (R_RESET, R_IDLE, R_FAST_LOAD, R_WAIT_END_TRANSACTION);
 
   TYPE w_state_type IS (W_RESET, W_IDLE, W_WRITE_CACHE, W_WRITE_MEMORY);
 
@@ -110,13 +110,11 @@ ARCHITECTURE rtl OF Cache IS
     OTHERS => (OTHERS => '0')
   );
 
-  --didn't used
-  SIGNAL write_pending     : BOOLEAN                       := false;
-  SIGNAL W_WRITE_CACHE_hit : BOOLEAN                       := false;
-  SIGNAL write_address     : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
-  SIGNAL write_data        : STD_LOGIC_VECTOR(7 DOWNTO 0)  := (OTHERS => '0');
-  --
+  SIGNAL read_cache_hit : BOOLEAN := false;
+
 BEGIN
+  read_cache_hit <= unsigned(r_address) <= unsigned(cache_upper_bound) AND unsigned(r_address) >= (unsigned(cache_upper_bound) - cache_size + 1);
+
   reader : ENTITY work.axi4_reader
     PORT MAP(
       clk => refclk,
@@ -182,7 +180,7 @@ BEGIN
   END PROCESS;
 
   -- handles the r_next_state variable
-  r_state_transmission : PROCESS (refclk, r_cur_state, r_valid, AXI_1_read_complete)
+  r_state_transmission : PROCESS (refclk, r_valid, AXI_1_read_complete)
   BEGIN
     r_next_state <= r_cur_state;
 
@@ -192,27 +190,26 @@ BEGIN
 
       WHEN R_IDLE =>
         IF r_valid = '1' THEN
-          r_next_state <= R_CHECK_ADDR;
+          IF read_cache_hit THEN
+            r_next_state <= R_FAST_LOAD;
+          ELSE
+            r_next_state <= R_WAIT_END_TRANSACTION;
+          END IF;
         END IF;
 
-      WHEN R_CHECK_ADDR =>
-        IF unsigned(r_address) <= unsigned(cache_upper_bound) AND unsigned(r_address) >= (unsigned(cache_upper_bound) - cache_size + 1) THEN
-          r_next_state           <= R_LOAD_DATA;
-        ELSE
-          r_next_state <= R_WAIT_END_TRANSACTION;
-        END IF;
+      WHEN R_FAST_LOAD =>
+        r_next_state <= R_WAIT_END_TRANSACTION;
 
-      WHEN R_LOAD_DATA =>
-        IF r_valid = '0' THEN
-          r_next_state <= R_IDLE;
+        IF r_valid = '1' AND read_cache_hit THEN
+          r_next_state <= R_FAST_LOAD;
         END IF;
 
       WHEN R_WAIT_END_TRANSACTION =>
-        IF AXI_1_read_complete = '1' THEN
-          IF AXI_1_read_last = '1' THEN
-            r_next_state <= R_LOAD_DATA;
+        IF AXI_1_read_complete = '1' AND AXI_1_read_last = '1' THEN
+          IF r_valid = '0' THEN
+            r_next_state <= R_IDLE;
           ELSE
-            r_next_state <= R_WAIT_END_TRANSACTION;
+            r_next_state <= R_FAST_LOAD;
           END IF;
         END IF;
     END CASE;
@@ -251,40 +248,38 @@ BEGIN
   END PROCESS;
 
   -- The state decides the output
-  r_output_decider : PROCESS (refclk, r_cur_state, AXI_1_read_complete)
+  r_output_decider : PROCESS (refclk, r_cur_state, read_cache_hit)
   BEGIN
+    IF rising_edge(refclk) THEN
+      r_data <= cache_data(to_integer((unsigned(r_address) + 3) MOD cache_size)) & -- Байт 3 (старший)
+        cache_data(to_integer((unsigned(r_address) + 2) MOD cache_size)) &           -- Байт 2
+        cache_data(to_integer((unsigned(r_address) + 1) MOD cache_size)) &           -- Байт 1
+        cache_data(to_integer(unsigned(r_address) MOD cache_size));                  -- Байт 0 (младший)
+    END IF;
+
     CASE r_cur_state IS
       WHEN R_RESET                =>
         AXI_1_read_addr  <= (OTHERS => '0');
         AXI_1_read_len   <= (OTHERS => '0');
         AXI_1_read_start <= '0';
-        r_data           <= (OTHERS => '0');
         r_ready          <= '0';
         cache_pointer    <= (OTHERS => '0');
       WHEN R_IDLE                 =>
         AXI_1_read_addr  <= (OTHERS => '0');
         AXI_1_read_len   <= (OTHERS => '0');
         AXI_1_read_start <= '0';
-        r_data           <= (OTHERS => '0');
         r_ready          <= '1';
         cache_pointer    <= (OTHERS => '0');
-      WHEN R_CHECK_ADDR           =>
+      WHEN R_FAST_LOAD            =>
         AXI_1_read_addr  <= (OTHERS => '0');
         AXI_1_read_len   <= (OTHERS => '0');
         AXI_1_read_start <= '0';
-        r_data           <= (OTHERS => '0');
-        r_ready          <= '0';
         cache_pointer    <= (OTHERS => '0');
+        r_ready          <= '0';
 
-      WHEN R_LOAD_DATA            =>
-        AXI_1_read_addr  <= (OTHERS => '0');
-        AXI_1_read_len   <= (OTHERS => '0');
-        AXI_1_read_start <= '0';
-        r_data           <= cache_data(to_integer((unsigned(r_address) + 3) MOD cache_size)) & -- Байт 3 (старший)
-          cache_data(to_integer((unsigned(r_address) + 2) MOD cache_size)) &                     -- Байт 2
-          cache_data(to_integer((unsigned(r_address) + 1) MOD cache_size)) &                     -- Байт 1
-          cache_data(to_integer(unsigned(r_address) MOD cache_size));                            -- Байт 0 (младший)
-        r_ready <= '1';
+        IF read_cache_hit THEN
+          r_ready <= '1';
+        END IF;
 
       WHEN R_WAIT_END_TRANSACTION =>
         AXI_1_read_addr <= r_address;
@@ -295,12 +290,15 @@ BEGIN
           AXI_1_read_start <= '1';
         END IF;
 
-        r_data  <= (OTHERS => '0');
         r_ready <= '0';
 
-        IF rising_edge(AXI_1_read_complete) THEN
+        IF rising_edge(refclk) AND AXI_1_read_complete = '1' THEN
           cache_pointer     <= STD_LOGIC_VECTOR(unsigned(cache_pointer) + 1);
           cache_upper_bound <= STD_LOGIC_VECTOR(unsigned(r_address) + unsigned(cache_pointer));
+
+          IF AXI_1_read_last = '1' THEN
+            r_ready <= '1';
+          END IF;
         END IF;
 
     END CASE;

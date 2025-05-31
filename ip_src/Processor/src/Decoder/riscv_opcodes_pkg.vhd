@@ -5,6 +5,10 @@ USE IEEE.STD_LOGIC_1164.ALL;
 PACKAGE riscv_opcodes_pkg IS
     -- Перечисляемый тип для OPCODE RV32I
     TYPE riscv_opcode_t IS (
+
+        -- Для некорректных или неподдерживаемых инструкций
+        OP_INVALID,
+
         -- R-тип (OPCODE = 0110011)
         OP_ADD,  -- ADD (funct3 = 000, funct7 = 0000000)
         OP_SUB,  -- SUB (funct3 = 000, funct7 = 0100000)
@@ -70,8 +74,7 @@ PACKAGE riscv_opcodes_pkg IS
         OP_ECALL,  -- ECALL (funct3 = 000, imm = 000000000000)
         OP_EBREAK, -- EBREAK (funct3 = 000, imm = 000000000001)
 
-        -- Для некорректных или неподдерживаемых инструкций
-        OP_INVALID
+        OP_NOP
     );
 
     TYPE riscv_imm_type_t IS (
@@ -80,7 +83,8 @@ PACKAGE riscv_opcodes_pkg IS
         IMM_S_TYPE,
         IMM_B_TYPE,
         IMM_U_TYPE,
-        IMM_J_TYPE
+        IMM_J_TYPE,
+        IMM_INVALID
     );
 
     -- Функция для декодирования OPCODE из инструкции
