@@ -58,10 +58,12 @@ END ENTITY Core;
 
 ARCHITECTURE rtl OF Core IS
 
-  SIGNAL PC           : STD_LOGIC_VECTOR(11 DOWNTO 0);
-  SIGNAL pc_stall     : STD_LOGIC                     := '0';
-  SIGNAL pc_jump_flag : STD_LOGIC                     := '0';
-  SIGNAL pc_jump_addr : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL PC                 : STD_LOGIC_VECTOR(11 DOWNTO 0);
+  SIGNAL pc_stall           : STD_LOGIC                     := '0';
+  SIGNAL pc_stall_fetch     : STD_LOGIC                     := '0';
+  SIGNAL pc_stall_execution : STD_LOGIC                     := '0';
+  SIGNAL pc_jump_flag       : STD_LOGIC                     := '0';
+  SIGNAL pc_jump_addr       : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
 
   -- Cache
   SIGNAL r_cache_address : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
@@ -137,6 +139,7 @@ ARCHITECTURE rtl OF Core IS
   SIGNAL execution_rd_addr : STD_LOGIC_VECTOR(4 DOWNTO 0); -- Адрес регистра rd
   -- 
 BEGIN
+  pc_stall <= pc_stall_execution OR pc_stall_fetch;
   pc_controller_inst : ENTITY work.PC_Controller
     PORT MAP(
       clk => refclk,
@@ -328,41 +331,41 @@ BEGIN
         decoder_instruction <= (OTHERS => '0');
         r_cache_address     <= (OTHERS => '0');
         r_cache_valid       <= '0';
-        pc_stall            <= '1';
+        pc_stall_fetch      <= '1';
       ELSE
         CASE fetch_state IS
           WHEN IDLE =>
             r_cache_address <= PC;
             r_cache_valid   <= '1';
-            pc_stall        <= '1';
+            pc_stall_fetch  <= '1';
 
           WHEN FAST_FETCH =>
             IF r_cache_ready = '0' THEN
               decoder_instruction <= (OTHERS => '0');
               r_cache_address     <= PC;
               r_cache_valid       <= '0';
-              pc_stall            <= '0';
+              pc_stall_fetch      <= '0';
             ELSE
               decoder_instruction <= r_cache_data;
               r_cache_address     <= PC;
               r_cache_valid       <= '1';
-              pc_stall            <= '0';
+              pc_stall_fetch      <= '0';
             END IF;
 
           WHEN WAIT_RESPONSE =>
-            pc_stall <= '1';
+            pc_stall_fetch <= '1';
             IF r_cache_ready = '1' THEN
               decoder_instruction <= r_cache_data;
               r_cache_address     <= PC;
               r_cache_valid       <= '1';
-              pc_stall            <= '0';
+              pc_stall_fetch      <= '0';
             END IF;
 
           WHEN OTHERS                    =>
             decoder_instruction <= (OTHERS => '0');
             r_cache_address     <= (OTHERS => '0');
             r_cache_valid       <= '0';
-            pc_stall            <= '1';
+            pc_stall_fetch      <= '1';
         END CASE;
       END IF;
     END IF;
@@ -383,6 +386,10 @@ BEGIN
         control_imm         <= (OTHERS => '0');
         control_unit_enable <= '0';
         alu_enable          <= '0';
+      ELSIF pc_stall_execution = '1' THEN
+        execution_control <= execution_control;
+        execution_rd_addr <= execution_rd_addr;
+        opcode            <= opcode;
       ELSE
         execution_control <= decoder_control;
         execution_rd_addr <= decoder_rd_addr;
@@ -408,6 +415,10 @@ BEGIN
           control_imm <= decoder_imm;
 
           control_unit_enable <= '1';
+        ELSIF decoder_control.mem_write = '1' THEN
+          w_cache_address <= decoder_imm(11 DOWNTO 0);
+          w_cache_data    <= decoder_rs2(7 DOWNTO 0);
+          w_cache_valid   <= '1';
         ELSE
           control_unit_enable <= '0';
           alu_enable          <= '0';
@@ -416,7 +427,7 @@ BEGIN
     END IF;
   END PROCESS decode;
 
-  execution : PROCESS (refclk)
+  execution_output_proc : PROCESS (refclk, execution_state, w_cache_ready, rst)
   BEGIN
     IF rising_edge(refclk) THEN
       IF rst = '1' THEN
@@ -426,31 +437,65 @@ BEGIN
         pc_jump_flag              <= '0';
         pc_jump_addr              <= (OTHERS => '0');
       ELSE
-        IF execution_control.reg_write = '1' THEN
-          pc_jump_flag <= '0';
-          pc_jump_addr <= (OTHERS => '0');
+        CASE execution_state IS
+          WHEN IDLE =>
+            pc_stall_execution <= execution_control.mem_write;
+            IF execution_control.reg_write = '1' THEN
+              pc_jump_flag <= '0';
+              pc_jump_addr <= (OTHERS => '0');
 
-          result_controller_enable  <= '1';
-          result_controller_result  <= alu_result;
-          result_controller_rd_addr <= execution_rd_addr;
+              result_controller_enable  <= '1';
+              result_controller_result  <= alu_result;
+              result_controller_rd_addr <= execution_rd_addr;
 
-        ELSIF control_jump = '1' AND (execution_control.branch = '1' OR execution_control.jump = '1') THEN
-          pc_jump_addr <= control_pc_out(11 DOWNTO 0);
-          pc_jump_flag <= '1';
+            ELSIF control_jump = '1' AND (execution_control.branch = '1' OR execution_control.jump = '1') THEN
+              pc_jump_addr <= control_pc_out(11 DOWNTO 0);
+              pc_jump_flag <= '1';
 
-          result_controller_enable  <= '0';
-          result_controller_result  <= (OTHERS => '0');
-          result_controller_rd_addr <= (OTHERS => '0');
-        ELSE
-          result_controller_enable  <= '0';
-          result_controller_result  <= (OTHERS => '0');
-          result_controller_rd_addr <= (OTHERS => '0');
-          pc_jump_flag              <= '0';
-          pc_jump_addr              <= (OTHERS => '0');
-        END IF;
+              result_controller_enable  <= '0';
+              result_controller_result  <= (OTHERS => '0');
+              result_controller_rd_addr <= (OTHERS => '0');
+            ELSE
+              result_controller_enable  <= '0';
+              result_controller_result  <= (OTHERS => '0');
+              result_controller_rd_addr <= (OTHERS => '0');
+              pc_jump_flag              <= '0';
+              pc_jump_addr              <= (OTHERS => '0');
+            END IF;
+
+          WHEN WAIT_RESULT =>
+            pc_stall_execution <= '1';
+
+          WHEN OTHERS =>
+            pc_stall_execution <= '0';
+        END CASE;
       END IF;
     END IF;
-  END PROCESS execution;
+  END PROCESS execution_output_proc;
+
+  execution_state_proc : PROCESS (refclk)
+  BEGIN
+    IF rising_edge(refclk) THEN
+      IF rst = '1' THEN
+        execution_state <= RESET;
+      ELSE
+        CASE execution_state IS
+          WHEN IDLE =>
+            IF execution_control.mem_write = '1' THEN
+              execution_state <= WAIT_RESULT;
+            END IF;
+
+          WHEN WAIT_RESULT =>
+            IF w_cache_ready = '1' THEN
+              execution_state <= IDLE;
+            END IF;
+
+          WHEN OTHERS =>
+            execution_state <= IDLE;
+        END CASE;
+      END IF;
+    END IF;
+  END PROCESS execution_state_proc;
 
   result : PROCESS (refclk)
   BEGIN
