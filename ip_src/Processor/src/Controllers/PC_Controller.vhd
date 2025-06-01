@@ -18,21 +18,22 @@ END ENTITY;
 ARCHITECTURE rtl OF PC_Controller IS
     SIGNAL pc_reg : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
 BEGIN
-
-    PROCESS (clk)
+    pc_proc : PROCESS (rst, clk, stall, jump, jump_addr)
     BEGIN
-        IF rising_edge(clk) THEN
-            IF rst = '1' THEN
-                pc_reg <= (OTHERS => '0');
-            ELSIF jump = '1' THEN
-                pc_reg <= jump_addr;
-            ELSIF stall = '1' THEN
-                pc_reg <= pc_reg; -- ничего не делаем
-            ELSE
-                pc_reg <= STD_LOGIC_VECTOR(unsigned(pc_reg) + 4);
+        IF stall = '0' THEN
+            IF rising_edge(clk) THEN
+                IF rst = '1' THEN
+                    pc_reg <= (OTHERS => '0');
+                ELSIF jump = '1' THEN
+                    pc_reg <= jump_addr;
+                ELSE
+                    pc_reg <= STD_LOGIC_VECTOR(unsigned(pc_reg) + 4);
+                END IF;
             END IF;
+        ELSE
+            pc_reg <= pc_reg; -- ничего не делаем
         END IF;
-    END PROCESS;
+    END PROCESS pc_proc;
 
     pc_out <= pc_reg;
 

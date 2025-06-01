@@ -328,7 +328,7 @@ BEGIN
     END IF;
   END PROCESS fetch_state_proc;
 
-  fetch_output_proc : PROCESS (PC, fetch_state, r_cache_ready, rst)
+  fetch_output_proc : PROCESS (rst, PC, fetch_state, r_cache_ready, pc_stall_decoder, pc_stall_execution)
   BEGIN
     -- Значения по умолчанию
 
@@ -380,7 +380,7 @@ BEGIN
     END IF;
   END PROCESS fetch_output_proc;
 
-  decode : PROCESS (rst, decoder_control, decoder_imm, decoder_rd_addr, decoder_rs1, decoder_rs2, decoder_rs1_addr, decoder_rs2_addr, pc_stall_execution)
+  decode : PROCESS (rst, PC, result_controller_rd_addr, result_controller_enable)
   BEGIN
     IF rst = '1' THEN
       execution_control   <= INVALID_CONTROL;
@@ -405,40 +405,50 @@ BEGIN
       w_cache_data      <= w_cache_data;
       w_cache_valid     <= w_cache_valid;
     ELSE
+      pc_stall_decoder  <= '0';
+      alu_enable        <= '1';
       execution_control <= decoder_control;
       execution_rd_addr <= decoder_rd_addr;
       opcode            <= decoder_control.opcode;
-      pc_stall_decoder  <= '0';
-      alu_enable        <= '1';
 
       IF decoder_control.alu_en = '1' THEN
         -- ALU
         operand_1 <= decoder_rs1;
 
-        IF decoder_rs1_addr = execution_rd_addr AND execution_control.reg_write = '1' THEN
-          pc_stall_decoder <= '1';
+        IF decoder_rs1_addr = result_controller_rd_addr AND result_controller_enable = '1' THEN
+          pc_stall_decoder  <= '1';
+          alu_enable        <= '0';
+          execution_control <= INVALID_CONTROL;
+
         END IF;
 
-        IF decoder_control.imm_type = IMM_I_TYPE THEN
+        IF decoder_control.imm_type = IMM_I_TYPE OR decoder_control.imm_type = IMM_U_TYPE THEN
           operand_2 <= decoder_imm;
         ELSE
           operand_2 <= decoder_rs2;
 
-          IF decoder_rs2_addr = execution_rd_addr AND execution_control.reg_write = '1' THEN
-            pc_stall_decoder <= '1';
+          IF decoder_rs2_addr = result_controller_rd_addr AND result_controller_enable = '1' THEN
+            pc_stall_decoder  <= '1';
+            alu_enable        <= '0';
+            execution_control <= INVALID_CONTROL;
           END IF;
         END IF;
-
       ELSIF decoder_control.branch = '1' OR decoder_control.jump = '1' THEN
         -- ControlUnit
-        control_pc_in <= STD_LOGIC_VECTOR(resize(unsigned(PC) - 1 * 4, 32)); -- отнимаем 1 команду т.к это уже второй этап конвейера
+        control_pc_in       <= STD_LOGIC_VECTOR(resize(unsigned(PC) - 2 * 4, 32)); -- отнимаем 1 команду т.к это уже второй этап конвейера
+        control_unit_enable <= '1';
+
+        IF (decoder_rs1_addr = result_controller_rd_addr OR decoder_rs2_addr = result_controller_rd_addr) AND result_controller_enable = '1' THEN
+          pc_stall_decoder    <= '1';
+          control_unit_enable <= '0';
+          execution_control   <= INVALID_CONTROL;
+        END IF;
 
         control_rs1 <= decoder_rs1;
         control_rs2 <= decoder_rs2;
 
         control_imm <= decoder_imm;
 
-        control_unit_enable <= '1';
       ELSIF decoder_control.mem_write = '1' THEN
         w_cache_address <= decoder_imm(11 DOWNTO 0);
         w_cache_data    <= decoder_rs2(7 DOWNTO 0);
@@ -453,7 +463,7 @@ BEGIN
     END IF;
   END PROCESS decode;
 
-  execution_output_proc : PROCESS (refclk, execution_state, w_cache_ready, rst)
+  execution_output_proc : PROCESS (rst, refclk)
   BEGIN
     IF rising_edge(refclk) THEN
       IF rst = '1' THEN

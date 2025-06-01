@@ -202,6 +202,7 @@ BEGIN
         -- U-тип
       WHEN OP_LUI =>
         ctrl.reg_write <= '1';
+        ctrl.alu_en    <= '1';
         ctrl.imm_type  <= IMM_U_TYPE;
       WHEN OP_AUIPC =>
         ctrl.reg_write <= '0';
