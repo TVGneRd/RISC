@@ -35,13 +35,13 @@ ARCHITECTURE rtl OF ResultController IS
 
 BEGIN
   -- Логика управления записью
-  PROCESS (refclk, rst)
+  PROCESS (enable, rd_addr, result, rst)
   BEGIN
     IF rst = '1' THEN
       reg_addr_internal  <= (OTHERS => '0');
       reg_data_internal  <= (OTHERS => '0');
       reg_write_internal <= '0';
-    ELSIF rising_edge(refclk) THEN
+    ELSE
       IF enable = '1' THEN
         reg_addr_internal  <= rd_addr;
         reg_data_internal  <= result;
