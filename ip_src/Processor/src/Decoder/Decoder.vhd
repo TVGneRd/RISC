@@ -212,7 +212,7 @@ BEGIN
 
         -- Системные инструкции (упрощённо)
       WHEN OP_ECALL | OP_EBREAK =>
-        -- Здесь нужно добавить обработку прерываний
+        ctrl.imm_type  <= IMM_I_TYPE;
         ctrl.reg_write <= '0';
 
       WHEN OTHERS =>

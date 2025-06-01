@@ -342,7 +342,7 @@ BEGIN
         expected_mem_to_reg => '0',
         expected_branch     => '0',
         expected_jump       => '0',
-        expected_imm_type   => IMM_I_TYPE,
+        expected_imm_type   => IMM_INVALID,
         test_name           => "Invalid instruction"
         );
 
