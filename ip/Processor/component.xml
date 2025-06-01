@@ -255,7 +255,7 @@
         <spirit:parameters>
           <spirit:parameter>
             <spirit:name>viewChecksum</spirit:name>
-            <spirit:value>6478dc71</spirit:value>
+            <spirit:value>07da4af3</spirit:value>
           </spirit:parameter>
         </spirit:parameters>
       </spirit:view>
@@ -271,7 +271,7 @@
         <spirit:parameters>
           <spirit:parameter>
             <spirit:name>viewChecksum</spirit:name>
-            <spirit:value>6478dc71</spirit:value>
+            <spirit:value>07da4af3</spirit:value>
           </spirit:parameter>
         </spirit:parameters>
       </spirit:view>
@@ -917,13 +917,13 @@
       <xilinx:definitionSource>package_project</xilinx:definitionSource>
       <xilinx:vendorDisplayName>SUAI</xilinx:vendorDisplayName>
       <xilinx:coreRevision>1</xilinx:coreRevision>
-      <xilinx:coreCreationDateTime>2025-06-01T13:56:01Z</xilinx:coreCreationDateTime>
+      <xilinx:coreCreationDateTime>2025-06-01T15:08:39Z</xilinx:coreCreationDateTime>
     </xilinx:coreExtensions>
     <xilinx:packagingInfo>
       <xilinx:xilinxVersion>2022.2.2</xilinx:xilinxVersion>
       <xilinx:checksum xilinx:scope="busInterfaces" xilinx:value="cdbd9807"/>
       <xilinx:checksum xilinx:scope="addressSpaces" xilinx:value="b945f56d"/>
-      <xilinx:checksum xilinx:scope="fileGroups" xilinx:value="3cd897b9"/>
+      <xilinx:checksum xilinx:scope="fileGroups" xilinx:value="adf36534"/>
       <xilinx:checksum xilinx:scope="ports" xilinx:value="378493c9"/>
       <xilinx:checksum xilinx:scope="parameters" xilinx:value="30eee5ee"/>
     </xilinx:packagingInfo>
