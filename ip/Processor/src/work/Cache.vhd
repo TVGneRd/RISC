@@ -295,12 +295,17 @@ BEGIN
 
   END PROCESS;
 
-  safe_data : PROCESS (AXI_1_read_complete)
+  safe_data : PROCESS (AXI_1_read_complete, r_cur_state)
   BEGIN
     IF rising_edge(AXI_1_read_complete) THEN
       cache_pointer     <= STD_LOGIC_VECTOR(unsigned(cache_pointer) + 1);
       cache_upper_bound <= STD_LOGIC_VECTOR(unsigned(r_address) + unsigned(cache_pointer));
-
+    ELSIF AXI_1_read_complete = '1' THEN
+      cache_pointer     <= cache_pointer;
+      cache_upper_bound <= cache_upper_bound;
+    ELSIF r_cur_state /= R_WAIT_END_TRANSACTION THEN
+      cache_pointer     <= (OTHERS => '0');
+      cache_upper_bound <= cache_upper_bound;
     END IF;
   END PROCESS safe_data;
 
