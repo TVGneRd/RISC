@@ -88,6 +88,7 @@ ARCHITECTURE rtl OF ProgramMemory_TOP IS
 
   TYPE memory_type IS ARRAY (0 TO 511) OF STD_LOGIC_VECTOR(7 DOWNTO 0);
   SIGNAL memory : memory_type := (
+    --  4,       3        2         1        ,
     "10010011", "00000010", "10010000", "00000001",
     "00010011", "00000011", "11100000", "00000001",
     "10110011", "10000011", "01100010", "00000000",
