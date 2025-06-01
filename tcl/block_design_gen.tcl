@@ -14,6 +14,8 @@ connect_bd_net [get_bd_ports rst_0] [get_bd_pins ProgramMemory_0/rst]
 set_property name refclk [get_bd_ports refclk_0]
 set_property name rst [get_bd_ports rst_0]
 
+assign_bd_address -target_address_space /Processor_0/M_AXI [get_bd_addr_segs ProgramMemory_0/S_AXI/reg0] -force
+
 make_wrapper -files [get_files $CURRENT_DIR/$PROJECT_NAME/$PROJECT_NAME.srcs/sources_1/bd/design_1/design_1.bd] -top
 add_files -norecurse $CURRENT_DIR/$PROJECT_NAME/$PROJECT_NAME.gen/sources_1/bd/design_1/hdl/design_1_wrapper.vhd
 set_property library work [get_files $CURRENT_DIR/$PROJECT_NAME/$PROJECT_NAME.gen/sources_1/bd/design_1/hdl/design_1_wrapper.vhd]

@@ -179,19 +179,19 @@ BEGIN
         WAIT FOR EDGE_CLK * 2 + EDGE_CLK;
         ASSERT M_AXI_ARVALID = '0' REPORT "M_AXI_ARVALID = '0'" SEVERITY ERROR;
 
+        WAIT UNTIL rising_edge(clk);
         -- Simulate r_data return (64 bytes)
         FOR i IN 0 TO 63 LOOP
-            WAIT UNTIL rising_edge(clk);
             M_AXI_RVALID <= '1';
             M_AXI_RDATA  <= STD_LOGIC_VECTOR(to_unsigned(i + 3, 8));
             IF i = 63 THEN
                 M_AXI_RLAST <= '1';
             END IF;
 
-            WAIT UNTIL rising_edge(clk);
+            WAIT FOR EDGE_CLK * 2 + EDGE_CLK;
             ASSERT M_AXI_RREADY = '1' REPORT "M_AXI_RREADY = '1'" SEVERITY ERROR;-- Wait for cache to process request
-
             M_AXI_RVALID <= '0';
+            WAIT UNTIL rising_edge(clk);
         END LOOP;
 
         WAIT UNTIL rising_edge(clk);
@@ -205,7 +205,7 @@ BEGIN
         ASSERT r_ready = '1' REPORT "r_ready = '1'" SEVERITY ERROR;
         ASSERT r_data = x"06050403" -- Should get bytes 0-3 from r_address 0x100
 
-        REPORT "[Cache Read] Test 1 failed: Incorrect r_data" SEVERITY ERROR;
+        REPORT "[Cache Read] Test 1 failed: Incorrect r_data " & to_hstring(to_bitvector(r_data)) & " != 0x06050403 " SEVERITY ERROR;
         WAIT FOR EDGE_CLK * 2;
 
         -- Test 2: Cache hit scenario

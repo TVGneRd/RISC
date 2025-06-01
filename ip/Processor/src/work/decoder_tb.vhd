@@ -26,11 +26,16 @@ ARCHITECTURE behavior OF tb_decoder IS
             reg_data_out_i_1 : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
             reg_addr_out_i_2 : OUT STD_LOGIC_VECTOR(4 DOWNTO 0);
             reg_data_out_i_2 : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
-            rd_addr          : OUT STD_LOGIC_VECTOR(4 DOWNTO 0);
-            rs1              : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
-            rs2              : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
-            imm              : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
-            control          : OUT control_signals_t
+
+            rd_addr : OUT STD_LOGIC_VECTOR(4 DOWNTO 0);
+
+            rs1      : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
+            rs2      : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
+            rs1_addr : OUT STD_LOGIC_VECTOR(4 DOWNTO 0); -- адрес регистра 1
+            rs2_addr : OUT STD_LOGIC_VECTOR(4 DOWNTO 0); -- адрес регистра 2
+
+            imm     : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
+            control : OUT control_signals_t
         );
     END COMPONENT;
 
@@ -45,6 +50,8 @@ ARCHITECTURE behavior OF tb_decoder IS
     SIGNAL rs2              : STD_LOGIC_VECTOR(31 DOWNTO 0);
     SIGNAL imm              : STD_LOGIC_VECTOR(31 DOWNTO 0);
     SIGNAL control          : control_signals_t;
+    SIGNAL rs1_addr         : STD_LOGIC_VECTOR(4 DOWNTO 0) := (OTHERS => '0'); -- Адрес регистра rs1
+    SIGNAL rs2_addr         : STD_LOGIC_VECTOR(4 DOWNTO 0) := (OTHERS => '0'); -- Адрес регистра rs2
 
 BEGIN
     -- Экземпляр декодера
@@ -59,7 +66,9 @@ BEGIN
         reg_data_out_i_2 => reg_data_out_i_2,
         rd_addr          => rd_addr,
         rs1              => rs1,
+        rs1_addr         => rs1_addr,
         rs2              => rs2,
+        rs2_addr         => rs2_addr,
         imm              => imm,
         control          => control
     );

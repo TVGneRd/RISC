@@ -61,6 +61,7 @@ ARCHITECTURE rtl OF Core IS
   SIGNAL PC                 : STD_LOGIC_VECTOR(11 DOWNTO 0);
   SIGNAL pc_stall           : STD_LOGIC                     := '0';
   SIGNAL pc_stall_fetch     : STD_LOGIC                     := '0';
+  SIGNAL pc_stall_decoder   : STD_LOGIC                     := '0';
   SIGNAL pc_stall_execution : STD_LOGIC                     := '0';
   SIGNAL pc_jump_flag       : STD_LOGIC                     := '0';
   SIGNAL pc_jump_addr       : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
@@ -80,7 +81,9 @@ ARCHITECTURE rtl OF Core IS
   -- Decoder
   SIGNAL decoder_instruction : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Входная инструкция
   SIGNAL decoder_rs1         : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Адрес регистра rs1
+  SIGNAL decoder_rs1_addr    : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0'); -- Адрес регистра rs1
   SIGNAL decoder_rs2         : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Адрес регистра rs2
+  SIGNAL decoder_rs2_addr    : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0'); -- Адрес регистра rs2
   SIGNAL decoder_rd_addr     : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0'); -- Адрес регистра rd
   SIGNAL decoder_imm         : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Непосредственное значение
   SIGNAL decoder_control     : control_signals_t;                                -- Управляющие сигналы
@@ -139,7 +142,7 @@ ARCHITECTURE rtl OF Core IS
   SIGNAL execution_rd_addr : STD_LOGIC_VECTOR(4 DOWNTO 0); -- Адрес регистра rd
   -- 
 BEGIN
-  pc_stall <= pc_stall_execution OR pc_stall_fetch;
+  pc_stall <= pc_stall_execution OR pc_stall_decoder OR pc_stall_fetch;
   pc_controller_inst : ENTITY work.PC_Controller
     PORT MAP(
       clk => refclk,
@@ -225,6 +228,9 @@ BEGIN
 
       reg_addr_out_i_2 => reg_addr_out_i_2, -- адрес регистра (0-31)
       reg_data_out_i_2 => reg_data_out_i_2, -- данные регистра по адресу
+
+      rs1_addr => decoder_rs1_addr,
+      rs2_addr => decoder_rs2_addr,
 
       rs1 => decoder_rs1, -- регистр rs1
       rs2 => decoder_rs2, -- регистр rs2
@@ -322,107 +328,127 @@ BEGIN
     END IF;
   END PROCESS fetch_state_proc;
 
-  fetch_output_proc : PROCESS (refclk, fetch_state, r_cache_ready, rst)
+  fetch_output_proc : PROCESS (PC, fetch_state, r_cache_ready, rst)
   BEGIN
-    IF falling_edge(refclk) THEN
-      -- Значения по умолчанию
+    -- Значения по умолчанию
 
-      IF rst = '1' THEN
-        decoder_instruction <= (OTHERS => '0');
-        r_cache_address     <= (OTHERS => '0');
-        r_cache_valid       <= '0';
-        pc_stall_fetch      <= '1';
-      ELSE
-        CASE fetch_state IS
-          WHEN IDLE =>
-            r_cache_address <= PC;
-            r_cache_valid   <= '1';
-            pc_stall_fetch  <= '1';
+    IF rst = '1' THEN
+      decoder_instruction <= (OTHERS => '0');
+      r_cache_address     <= (OTHERS => '0');
+      r_cache_valid       <= '0';
+      pc_stall_fetch      <= '1';
+    ELSIF pc_stall_decoder = '1' OR pc_stall_execution = '1' THEN
+      decoder_instruction <= decoder_instruction;
+      r_cache_address     <= r_cache_address;
+      r_cache_valid       <= r_cache_valid;
+      pc_stall_fetch      <= pc_stall_fetch;
+    ELSE
+      CASE fetch_state IS
+        WHEN IDLE =>
+          r_cache_address <= PC;
+          r_cache_valid   <= '1';
+          pc_stall_fetch  <= '1';
 
-          WHEN FAST_FETCH =>
-            IF r_cache_ready = '0' THEN
-              decoder_instruction <= (OTHERS => '0');
-              r_cache_address     <= PC;
-              r_cache_valid       <= '0';
-              pc_stall_fetch      <= '0';
-            ELSE
-              decoder_instruction <= r_cache_data;
-              r_cache_address     <= PC;
-              r_cache_valid       <= '1';
-              pc_stall_fetch      <= '0';
-            END IF;
-
-          WHEN WAIT_RESPONSE =>
-            pc_stall_fetch <= '1';
-            IF r_cache_ready = '1' THEN
-              decoder_instruction <= r_cache_data;
-              r_cache_address     <= PC;
-              r_cache_valid       <= '1';
-              pc_stall_fetch      <= '0';
-            END IF;
-
-          WHEN OTHERS                    =>
+        WHEN FAST_FETCH =>
+          IF r_cache_ready = '0' THEN
             decoder_instruction <= (OTHERS => '0');
-            r_cache_address     <= (OTHERS => '0');
+            r_cache_address     <= PC;
             r_cache_valid       <= '0';
-            pc_stall_fetch      <= '1';
-        END CASE;
-      END IF;
+            pc_stall_fetch      <= '0';
+          ELSE
+            decoder_instruction <= r_cache_data;
+            r_cache_address     <= PC;
+            r_cache_valid       <= '1';
+            pc_stall_fetch      <= '0';
+          END IF;
+
+        WHEN WAIT_RESPONSE =>
+          pc_stall_fetch <= '1';
+          IF r_cache_ready = '1' THEN
+            decoder_instruction <= r_cache_data;
+            r_cache_address     <= PC;
+            r_cache_valid       <= '1';
+            pc_stall_fetch      <= '0';
+          END IF;
+
+        WHEN OTHERS                    =>
+          decoder_instruction <= (OTHERS => '0');
+          r_cache_address     <= (OTHERS => '0');
+          r_cache_valid       <= '0';
+          pc_stall_fetch      <= '1';
+      END CASE;
     END IF;
   END PROCESS fetch_output_proc;
 
-  decode : PROCESS (refclk)
+  decode : PROCESS (rst, decoder_control, decoder_imm, decoder_rd_addr, decoder_rs1, decoder_rs2, decoder_rs1_addr, decoder_rs2_addr, pc_stall_execution)
   BEGIN
-    IF rising_edge(refclk) THEN
-      IF rst = '1' THEN
-        execution_control   <= INVALID_CONTROL;
-        execution_rd_addr   <= (OTHERS => '0');
-        opcode              <= OP_INVALID;
-        operand_1           <= (OTHERS => '0');
-        operand_2           <= (OTHERS => '0');
-        control_pc_in       <= (OTHERS => '0');
-        control_rs1         <= (OTHERS => '0');
-        control_rs2         <= (OTHERS => '0');
-        control_imm         <= (OTHERS => '0');
+    IF rst = '1' THEN
+      execution_control   <= INVALID_CONTROL;
+      execution_rd_addr   <= (OTHERS => '0');
+      opcode              <= OP_INVALID;
+      operand_1           <= (OTHERS => '0');
+      operand_2           <= (OTHERS => '0');
+      control_pc_in       <= (OTHERS => '0');
+      control_rs1         <= (OTHERS => '0');
+      control_rs2         <= (OTHERS => '0');
+      control_imm         <= (OTHERS => '0');
+      control_unit_enable <= '0';
+      alu_enable          <= '0';
+      w_cache_address     <= (OTHERS => '0');
+      w_cache_data        <= (OTHERS => '0');
+      w_cache_valid       <= '0';
+    ELSIF pc_stall_execution = '1' THEN
+      execution_control <= execution_control;
+      execution_rd_addr <= execution_rd_addr;
+      opcode            <= opcode;
+      w_cache_address   <= w_cache_address;
+      w_cache_data      <= w_cache_data;
+      w_cache_valid     <= w_cache_valid;
+    ELSE
+      execution_control <= decoder_control;
+      execution_rd_addr <= decoder_rd_addr;
+      opcode            <= decoder_control.opcode;
+      pc_stall_decoder  <= '0';
+      alu_enable        <= '1';
+
+      IF decoder_control.alu_en = '1' THEN
+        -- ALU
+        operand_1 <= decoder_rs1;
+
+        IF decoder_rs1_addr = execution_rd_addr AND execution_control.reg_write = '1' THEN
+          pc_stall_decoder <= '1';
+        END IF;
+
+        IF decoder_control.imm_type = IMM_I_TYPE THEN
+          operand_2 <= decoder_imm;
+        ELSE
+          operand_2 <= decoder_rs2;
+
+          IF decoder_rs2_addr = execution_rd_addr AND execution_control.reg_write = '1' THEN
+            pc_stall_decoder <= '1';
+          END IF;
+        END IF;
+
+      ELSIF decoder_control.branch = '1' OR decoder_control.jump = '1' THEN
+        -- ControlUnit
+        control_pc_in <= STD_LOGIC_VECTOR(resize(unsigned(PC) - 1 * 4, 32)); -- отнимаем 1 команду т.к это уже второй этап конвейера
+
+        control_rs1 <= decoder_rs1;
+        control_rs2 <= decoder_rs2;
+
+        control_imm <= decoder_imm;
+
+        control_unit_enable <= '1';
+      ELSIF decoder_control.mem_write = '1' THEN
+        w_cache_address <= decoder_imm(11 DOWNTO 0);
+        w_cache_data    <= decoder_rs2(7 DOWNTO 0);
+        w_cache_valid   <= '1';
+      ELSE
         control_unit_enable <= '0';
         alu_enable          <= '0';
-      ELSIF pc_stall_execution = '1' THEN
-        execution_control <= execution_control;
-        execution_rd_addr <= execution_rd_addr;
-        opcode            <= opcode;
-      ELSE
-        execution_control <= decoder_control;
-        execution_rd_addr <= decoder_rd_addr;
-        opcode            <= decoder_control.opcode;
-
-        IF decoder_control.alu_en = '1' THEN
-          -- ALU
-          operand_1 <= decoder_rs1;
-
-          IF decoder_control.imm_type = IMM_I_TYPE THEN
-            operand_2 <= decoder_imm;
-          ELSE
-            operand_2 <= decoder_rs2;
-          END IF;
-          alu_enable <= '1';
-        ELSIF decoder_control.branch = '1' OR decoder_control.jump = '1' THEN
-          -- ControlUnit
-          control_pc_in <= STD_LOGIC_VECTOR(resize(unsigned(PC) - 1 * 4, 32)); -- отнимаем 1 команду т.к это уже второй этап конвейера
-
-          control_rs1 <= decoder_rs1;
-          control_rs2 <= decoder_rs2;
-
-          control_imm <= decoder_imm;
-
-          control_unit_enable <= '1';
-        ELSIF decoder_control.mem_write = '1' THEN
-          w_cache_address <= decoder_imm(11 DOWNTO 0);
-          w_cache_data    <= decoder_rs2(7 DOWNTO 0);
-          w_cache_valid   <= '1';
-        ELSE
-          control_unit_enable <= '0';
-          alu_enable          <= '0';
-        END IF;
+        w_cache_address     <= (OTHERS => '0');
+        w_cache_data        <= (OTHERS => '0');
+        w_cache_valid       <= '0';
       END IF;
     END IF;
   END PROCESS decode;

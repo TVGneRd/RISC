@@ -30,6 +30,9 @@ ENTITY Decoder IS
     rs1 : OUT STD_LOGIC_VECTOR(31 DOWNTO 0); -- адрес регистра (0-31)
     rs2 : OUT STD_LOGIC_VECTOR(31 DOWNTO 0); -- адрес регистра (0-31)
 
+    rs1_addr : OUT STD_LOGIC_VECTOR(4 DOWNTO 0); -- адрес регистра 1
+    rs2_addr : OUT STD_LOGIC_VECTOR(4 DOWNTO 0); -- адрес регистра 2
+
     imm : OUT STD_LOGIC_VECTOR(31 DOWNTO 0); -- Непосредственное значение
 
     control : OUT control_signals_t -- Управляющие сигналы
@@ -75,11 +78,11 @@ BEGIN
 
   -- Декодирование инструкции и формирование управляющих сигналов
   PROCESS (clk, opcode, funct3, funct7)
-    VARIABLE rs1_addr : STD_LOGIC_VECTOR(4 DOWNTO 0) := (OTHERS => '0');
-    VARIABLE rs2_addr : STD_LOGIC_VECTOR(4 DOWNTO 0) := (OTHERS => '0');
+    VARIABLE rs1_address : STD_LOGIC_VECTOR(4 DOWNTO 0) := (OTHERS => '0');
+    VARIABLE rs2_address : STD_LOGIC_VECTOR(4 DOWNTO 0) := (OTHERS => '0');
   BEGIN
-    rs1_addr := instruction(19 DOWNTO 15);
-    rs2_addr := instruction(24 DOWNTO 20);
+    rs1_address := instruction(19 DOWNTO 15);
+    rs2_address := instruction(24 DOWNTO 20);
 
     -- Инициализация управляющих сигналов
     ctrl.opcode     <= opcode;
@@ -220,16 +223,17 @@ BEGIN
     END CASE;
 
     IF ctrl.imm_type = IMM_R_TYPE OR ctrl.imm_type = IMM_S_TYPE OR ctrl.imm_type = IMM_B_TYPE THEN
-      reg_addr_out_i_2 <= rs2_addr;
+      reg_addr_out_i_2 <= rs2_address;
     ELSE
       reg_addr_out_i_2 <= (OTHERS => '0');
     END IF;
 
     IF ctrl.imm_type = IMM_R_TYPE OR ctrl.imm_type = IMM_I_TYPE OR ctrl.imm_type = IMM_S_TYPE OR ctrl.imm_type = IMM_B_TYPE THEN
-      reg_addr_out_i_1 <= rs1_addr;
+      reg_addr_out_i_1 <= rs1_address;
     ELSE
       reg_addr_out_i_1 <= (OTHERS => '0');
     END IF;
+
   END PROCESS;
 
   -- Выбор imm в зависимости от типа инструкции
@@ -242,6 +246,9 @@ BEGIN
     (OTHERS => '0');
 
   -- Выходы
+
+  rs1_addr <= instruction(19 DOWNTO 15);
+  rs2_addr <= instruction(24 DOWNTO 20);
 
   rs1 <= reg_data_out_i_1 WHEN ctrl.imm_type = IMM_R_TYPE OR ctrl.imm_type = IMM_I_TYPE OR ctrl.imm_type = IMM_S_TYPE OR ctrl.imm_type = IMM_B_TYPE ELSE
     (OTHERS => '0');
