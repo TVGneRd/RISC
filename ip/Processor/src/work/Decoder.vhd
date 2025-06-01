@@ -90,7 +90,7 @@ BEGIN
     ctrl.mem_to_reg <= '0';
     ctrl.branch     <= '0';
     ctrl.jump       <= '0';
-    ctrl.imm_type   <= IMM_I_TYPE;
+    ctrl.imm_type   <= IMM_INVALID;
 
     CASE opcode IS
         -- R-тип
@@ -198,7 +198,7 @@ BEGIN
 
         -- U-тип
       WHEN OP_LUI =>
-        ctrl.reg_write <= '0';
+        ctrl.reg_write <= '1';
         ctrl.imm_type  <= IMM_U_TYPE;
       WHEN OP_AUIPC =>
         ctrl.reg_write <= '0';
@@ -212,7 +212,7 @@ BEGIN
 
         -- Системные инструкции (упрощённо)
       WHEN OP_ECALL | OP_EBREAK =>
-        -- Здесь нужно добавить обработку прерываний
+        ctrl.imm_type  <= IMM_I_TYPE;
         ctrl.reg_write <= '0';
 
       WHEN OTHERS =>

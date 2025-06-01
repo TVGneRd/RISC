@@ -5,6 +5,10 @@ USE IEEE.STD_LOGIC_1164.ALL;
 PACKAGE riscv_opcodes_pkg IS
     -- Перечисляемый тип для OPCODE RV32I
     TYPE riscv_opcode_t IS (
+
+        -- Для некорректных или неподдерживаемых инструкций
+        OP_INVALID,
+
         -- R-тип (OPCODE = 0110011)
         OP_ADD,  -- ADD (funct3 = 000, funct7 = 0000000)
         OP_SUB,  -- SUB (funct3 = 000, funct7 = 0100000)
@@ -16,6 +20,16 @@ PACKAGE riscv_opcodes_pkg IS
         OP_SRA,  -- SRA (funct3 = 101, funct7 = 0100000)
         OP_OR,   -- OR (funct3 = 110, funct7 = 0000000)
         OP_AND,  -- AND (funct3 = 111, funct7 = 0000000)
+
+        -- Расширение M (умножение и деление)
+        OP_MUL,    -- MUL (funct3 = 000, funct7 = 0000001)
+        OP_MULH,   -- MULH (funct3 = 001, funct7 = 0000001)
+        OP_MULHSU, -- MULHSU (funct3 = 010, funct7 = 0000001)
+        OP_MULHU,  -- MULHU (funct3 = 011, funct7 = 0000001)
+        OP_DIV,    -- DIV (funct3 = 100, funct7 = 0000001)
+        OP_DIVU,   -- DIVU (funct3 = 101, funct7 = 0000001)
+        OP_REM,    -- REM (funct3 = 110, funct7 = 0000001)
+        OP_REMU,   -- REMU (funct3 = 111, funct7 = 0000001)
 
         -- I-тип (OPCODE = 0010011 для арифметики, 0000011 для загрузки, 1100111 для JALR)
         OP_ADDI,  -- ADDI (funct3 = 000, OPCODE = 0010011)
@@ -60,8 +74,7 @@ PACKAGE riscv_opcodes_pkg IS
         OP_ECALL,  -- ECALL (funct3 = 000, imm = 000000000000)
         OP_EBREAK, -- EBREAK (funct3 = 000, imm = 000000000001)
 
-        -- Для некорректных или неподдерживаемых инструкций
-        OP_INVALID
+        OP_NOP
     );
 
     TYPE riscv_imm_type_t IS (
@@ -70,7 +83,8 @@ PACKAGE riscv_opcodes_pkg IS
         IMM_S_TYPE,
         IMM_B_TYPE,
         IMM_U_TYPE,
-        IMM_J_TYPE
+        IMM_J_TYPE,
+        IMM_INVALID
     );
 
     -- Функция для декодирования OPCODE из инструкции
@@ -86,7 +100,7 @@ PACKAGE BODY riscv_opcodes_pkg IS
         VARIABLE imm12                     : STD_LOGIC_VECTOR(11 DOWNTO 0) := instruction(31 DOWNTO 20);
     BEGIN
         CASE opcode IS
-                -- R-тип (OPCODE = 0110011)
+                -- R-тип и M-тип (OPCODE = 0110011) 
             WHEN "0110011" =>
                 CASE funct3 IS
                     WHEN "000" =>
@@ -129,6 +143,21 @@ PACKAGE BODY riscv_opcodes_pkg IS
                         END IF;
                     WHEN OTHERS => RETURN OP_INVALID;
                 END CASE;
+
+                -- проверяем расширение M (funct7 = 0000001)
+                IF funct7 = "0000001" THEN
+                    CASE funct3 IS
+                        WHEN "000"  => RETURN OP_MUL;
+                        WHEN "001"  => RETURN OP_MULH;
+                        WHEN "010"  => RETURN OP_MULHSU;
+                        WHEN "011"  => RETURN OP_MULHU;
+                        WHEN "100"  => RETURN OP_DIV;
+                        WHEN "101"  => RETURN OP_DIVU;
+                        WHEN "110"  => RETURN OP_REM;
+                        WHEN "111"  => RETURN OP_REMU;
+                        WHEN OTHERS => RETURN OP_INVALID;
+                    END CASE;
+                END IF;
 
                 -- I-тип (арифметика, OPCODE = 0010011)
             WHEN "0010011" =>
@@ -208,7 +237,6 @@ PACKAGE BODY riscv_opcodes_pkg IS
                         RETURN OP_EBREAK;
                     END IF;
                 END IF;
-
                 -- Некорректный OPCODE
             WHEN OTHERS => RETURN OP_INVALID;
         END CASE;

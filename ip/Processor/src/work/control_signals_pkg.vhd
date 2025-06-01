@@ -14,4 +14,16 @@ PACKAGE control_signals_pkg IS
         jump       : STD_LOGIC;        -- Безусловный прыжок (JAL, JALR)
         imm_type   : riscv_imm_type_t; -- Тип непосредственного значения
     END RECORD;
+
+    CONSTANT INVALID_CONTROL : control_signals_t := (
+        opcode     => OP_INVALID,
+        alu_en     => '0',
+        reg_write  => '0',
+        mem_read   => '0',
+        mem_write  => '0',
+        mem_to_reg => '0',
+        branch     => '0',
+        jump       => '0',
+        imm_type   => IMM_INVALID
+    );
 END PACKAGE control_signals_pkg;

@@ -61,15 +61,13 @@ ARCHITECTURE Behavioral OF axi4_writer IS
     SIGNAL bresp_read      : BOOLEAN := false;
 
 BEGIN
-
     data_safe : PROCESS (clk, rst, write_addr_read, write_data_read, bresp_read)
         VARIABLE write_addr_safe : STD_LOGIC_VECTOR(write_addr'RANGE);
         VARIABLE write_data_safe : STD_LOGIC_VECTOR(write_data'RANGE);
         VARIABLE bresp_safe      : STD_LOGIC_VECTOR(M_AXI_BRESP'RANGE);
-        VARIABLE shift_modifier  : NATURAL;
         VARIABLE wdata_reg       : STD_LOGIC_VECTOR(M_AXI_WDATA'RANGE);
     BEGIN
-        IF rst = '0' THEN
+        IF rst = '1' THEN
             write_addr_safe := (OTHERS => '0');
             write_data_safe := (OTHERS => '0');
             bresp_safe      := (OTHERS => '0');
@@ -84,20 +82,17 @@ BEGIN
                 bresp_safe := M_AXI_BRESP;
             END IF;
         END IF;
-
-        shift_modifier := 0;
-
         wdata_reg := write_data_safe;
 
         M_AXI_AWADDR <= write_addr_safe;
-        M_AXI_WDATA  <= STD_LOGIC_VECTOR(shift_left(unsigned(wdata_reg), shift_modifier * 8));
+        M_AXI_WDATA  <= wdata_reg;
         write_result <= bresp_safe;
 
     END PROCESS;
 
     state_transition : PROCESS (clk, rst)
     BEGIN
-        IF rst = '0' THEN
+        IF rst = '1' THEN
             cur_state <= rst_state;
         ELSIF rising_edge(clk) THEN
             cur_state <= next_state;

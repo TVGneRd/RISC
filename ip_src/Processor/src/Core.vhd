@@ -324,11 +324,6 @@ BEGIN
     IF falling_edge(refclk) THEN
       -- Значения по умолчанию
 
-      decoder_instruction <= (OTHERS => '0');
-      r_cache_address     <= (OTHERS => '0');
-      r_cache_valid       <= '0';
-      pc_stall            <= '1';
-
       IF rst = '1' THEN
         decoder_instruction <= (OTHERS => '0');
         r_cache_address     <= (OTHERS => '0');
@@ -405,7 +400,7 @@ BEGIN
           alu_enable <= '1';
         ELSIF decoder_control.branch = '1' OR decoder_control.jump = '1' THEN
           -- ControlUnit
-          control_pc_in <= STD_LOGIC_VECTOR(resize(unsigned(PC) - 2 * 4, 32)); -- отнимаем 2 слова т.к это уже второй этап конвейера
+          control_pc_in <= STD_LOGIC_VECTOR(resize(unsigned(PC) - 1 * 4, 32)); -- отнимаем 1 команду т.к это уже второй этап конвейера
 
           control_rs1 <= decoder_rs1;
           control_rs2 <= decoder_rs2;

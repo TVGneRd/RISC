@@ -2,6 +2,7 @@
 LIBRARY IEEE;--! standard library IEEE (Institute of Electrical and Electronics Engineers)
 USE IEEE.std_logic_1164.ALL;--! standard unresolved logic UX01ZWLH-
 USE IEEE.numeric_std.ALL;--! for the signed, unsigned types and arithmetic ops
+USE IEEE.std_logic_textio.ALL; -- если используете to_hstring
 
 ENTITY Processor_TB IS
   GENERIC (
@@ -310,12 +311,12 @@ BEGIN
     M_AXI_ARREADY <= '0';
 
     -- Simulate data return (64 bytes)
-    transmit_word("00000001100100000000001010010011", '0'); -- addi x5, zero, 25 
-    transmit_word("00000001111000000000001100010011", '0'); -- addi x6, zero, 30
-    transmit_word("00000000011000101000001110110011", '0'); -- add  x7, x5, x6
-    transmit_word("00000011011100000000111000010011", '0'); -- addi x28, zero, 55
-    transmit_word("00000101110000111001010001100011", '0'); -- bne x7, x28, test_failed (+40) 0x28
-    transmit_word("00000010000000000000000011101111", '0'); -- j test_completed (+32) 0x20
+    transmit_word("00000001100100000000001010010011", '0'); -- addi x5, zero, 25  (ADDR: 0)
+    transmit_word("00000001111000000000001100010011", '0'); -- addi x6, zero, 30 (ADDR: 4)
+    transmit_word("00000000011000101000001110110011", '0'); -- add  x7, x5, x6 (ADDR: 8)
+    transmit_word("00000011011100000000111000010011", '0'); -- addi x28, zero, 55 (ADDR: 12)
+    transmit_word("00000101110000111001010001100011", '0'); -- bne x7, x28, test_failed (+40) 0x28 (ADDR: 16)
+    transmit_word("00000010000000000000000011101111", '0'); -- j test_completed (+32) 0x20 (ADDR: 20 (0x14))
 
     FOR i IN 6 * 4 TO 63 LOOP
       IF i = 63 THEN
@@ -330,11 +331,20 @@ BEGIN
     M_AXI_RLAST   <= '0';
     M_AXI_ARREADY <= '1';
 
-    WAIT UNTIL M_AXI_ARVALID = '1' FOR 10 * EDGE_CLK;
+    -- Расчет времени выполнения команды:
+    -- После установки M_AXI_ARREADY=1 команда попадет в декодер через 1 такт
+    -- первая команда выполнится за 4 такта
+    -- последующие команды выполняются 1 такт
+    -- всего команд 5 (не считая первой)
+    -- после выполнения прыжка нужен еще 1 такт чтобы сигнал из кэша дошел до axi_reader
+    -- Итог: 1 + 4 + 5 + 1 = 11
+    WAIT FOR 11 * 2 * EDGE_CLK; -- На выполнение команды дается 6 тактов 
+    WAIT FOR EDGE_CLK;
+
     ASSERT M_AXI_ARVALID = '1' REPORT "M_AXI_ARVALID != '1'" SEVERITY ERROR;
 
-    -- PC(0x18) + 0x20 * 4
-    ASSERT M_AXI_ARADDR = x"98" REPORT "Program should have requested the address 0x98 (PC(0x18) + 0x20 * 4)" SEVERITY ERROR;
+    -- PC(0x14) + 0x20 * 4 = 148 (0x94)
+    ASSERT unsigned(M_AXI_ARADDR) = 16#94# REPORT "Program should have requested the address 0x94 (PC(0x14) + 0x20 * 4) is 0x" & to_hstring(to_bitvector(M_AXI_ARADDR)) SEVERITY ERROR;
 
     core_test_completed <= '1';
 

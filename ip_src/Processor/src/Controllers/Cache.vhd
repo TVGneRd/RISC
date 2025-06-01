@@ -263,18 +263,15 @@ BEGIN
         AXI_1_read_len   <= (OTHERS => '0');
         AXI_1_read_start <= '0';
         r_ready          <= '0';
-        cache_pointer    <= (OTHERS => '0');
       WHEN R_IDLE                 =>
         AXI_1_read_addr  <= (OTHERS => '0');
         AXI_1_read_len   <= (OTHERS => '0');
         AXI_1_read_start <= '0';
         r_ready          <= '1';
-        cache_pointer    <= (OTHERS => '0');
       WHEN R_FAST_LOAD            =>
         AXI_1_read_addr  <= (OTHERS => '0');
         AXI_1_read_len   <= (OTHERS => '0');
         AXI_1_read_start <= '0';
-        cache_pointer    <= (OTHERS => '0');
         r_ready          <= '0';
 
         IF read_cache_hit THEN
@@ -291,19 +288,21 @@ BEGIN
         END IF;
 
         r_ready <= '0';
-
-        IF rising_edge(refclk) AND AXI_1_read_complete = '1' THEN
-          cache_pointer     <= STD_LOGIC_VECTOR(unsigned(cache_pointer) + 1);
-          cache_upper_bound <= STD_LOGIC_VECTOR(unsigned(r_address) + unsigned(cache_pointer));
-
-          IF AXI_1_read_last = '1' THEN
-            r_ready <= '1';
-          END IF;
+        IF AXI_1_read_last = '1' THEN
+          r_ready <= '1';
         END IF;
-
     END CASE;
 
   END PROCESS;
+
+  safe_data : PROCESS (AXI_1_read_complete)
+  BEGIN
+    IF rising_edge(AXI_1_read_complete) THEN
+      cache_pointer     <= STD_LOGIC_VECTOR(unsigned(cache_pointer) + 1);
+      cache_upper_bound <= STD_LOGIC_VECTOR(unsigned(r_address) + unsigned(cache_pointer));
+
+    END IF;
+  END PROCESS safe_data;
 
   -- The state decides the output
   w_output_decider : PROCESS (refclk, w_cur_state, AXI_1_write_complete)

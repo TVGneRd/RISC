@@ -66,7 +66,7 @@ ARCHITECTURE behavior OF ProgramMemory_TOP_tb IS
   SIGNAL S_AXI_WDATA  : STD_LOGIC_VECTOR(7 DOWNTO 0) := (OTHERS => '0');
   SIGNAL S_AXI_WVALID : STD_LOGIC                    := '0';
   SIGNAL S_AXI_WREADY : STD_LOGIC                    := '0';
-  SIGNAL S_AXI_WLAST  : STD_LOGIC                    := '0';
+  SIGNAL S_AXI_WLAST  : STD_LOGIC                    := '1';
 
   -- Clock period definitions
   CONSTANT refclk_period : TIME := 4 ns; -- 250 MHz
@@ -204,6 +204,66 @@ BEGIN
 
     WAIT FOR refclk_period * 5;
     REPORT "All tests completed";
+    WAIT;
+  END PROCESS;
+
+  stim_proc_w : PROCESS
+  BEGIN
+    WAIT UNTIL rst = '0';
+    WAIT UNTIL rising_edge(refclk);
+    REPORT "test1 stsrt";
+    -- Тест 1: Запись в валидный адрес (0x100)
+    S_AXI_AWADDR  <= x"100";
+    S_AXI_AWVALID <= '1';
+    WAIT UNTIL S_AXI_AWREADY = '0' AND rising_edge(refclk);
+    S_AXI_AWVALID <= '0';
+    S_AXI_WDATA   <= x"AA";
+    S_AXI_WVALID  <= '1';
+    WAIT UNTIL S_AXI_WREADY = '1' AND rising_edge(refclk);
+    S_AXI_WVALID <= '0';
+
+    S_AXI_BREADY <= '1';
+    WAIT UNTIL S_AXI_BVALID = '1' AND rising_edge(refclk);
+    ASSERT S_AXI_BRESP = "00" REPORT "adress err 0x100" SEVERITY ERROR;
+    S_AXI_BREADY <= '0';
+    WAIT FOR refclk_period * 5;
+
+    -- Тест 2: Запись в невалидный адрес (0x200)
+    REPORT "test2 start";
+    S_AXI_AWADDR  <= x"200";
+    S_AXI_AWVALID <= '1';
+    WAIT UNTIL S_AXI_AWREADY = '0' AND rising_edge(refclk);
+    S_AXI_AWVALID <= '0';
+    S_AXI_WDATA   <= x"BB";
+    S_AXI_WVALID  <= '1';
+    WAIT UNTIL S_AXI_WREADY = '0' AND rising_edge(refclk);
+    S_AXI_WVALID <= '0';
+
+    S_AXI_BREADY <= '1';
+    WAIT UNTIL S_AXI_BVALID = '1' AND rising_edge(refclk);
+    ASSERT S_AXI_BRESP = "11" REPORT "adress err 0x200" SEVERITY ERROR;
+    S_AXI_BREADY <= '0';
+    WAIT FOR refclk_period * 5;
+
+    -- Тест 3: Запись в граничный адрес (0x1FF)
+    REPORT "test3 start";
+    S_AXI_AWADDR  <= x"1FF";
+    S_AXI_AWVALID <= '1';
+    WAIT UNTIL S_AXI_AWREADY = '0' AND rising_edge(refclk);
+    S_AXI_AWVALID <= '0';
+    S_AXI_WDATA   <= x"CC";
+    S_AXI_WVALID  <= '1';
+    WAIT UNTIL S_AXI_WREADY = '1' AND rising_edge(refclk);
+    S_AXI_WVALID <= '0';
+
+    S_AXI_BREADY <= '1';
+    WAIT UNTIL S_AXI_BVALID = '1' AND rising_edge(refclk);
+    ASSERT S_AXI_BRESP = "00" REPORT "adress err 1FF" SEVERITY ERROR;
+    S_AXI_BREADY <= '0';
+    WAIT FOR refclk_period * 5;
+
+    -- Завершение симуляции
+    REPORT "test uspeshno zavershen";
     WAIT;
   END PROCESS;
 

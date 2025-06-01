@@ -148,6 +148,75 @@ BEGIN
         enable <= '0';
         WAIT FOR EDGE_CLK * 2;
 
+        -- Тест 7: MUL (умножение)
+        enable    <= '1';
+        operand_1 <= X"00000005"; -- 5
+        operand_2 <= X"00000004"; -- 4
+        opcode    <= OP_MUL;      -- OP_MUL
+        WAIT FOR EDGE_CLK * 2;
+        ASSERT result = X"00000014" -- Ожидаем 20 (5 * 4)
+        REPORT "MUL failed!" SEVERITY ERROR;
+        enable <= '0';
+        WAIT FOR EDGE_CLK * 2;
+
+        -- Тест 8: MULH (умножение со знаком, старшие биты)
+        enable    <= '1';
+        operand_1 <= X"80000000"; -- -2^31
+        operand_2 <= X"80000000"; -- -2^31
+        opcode    <= OP_MULH;     -- OP_MULH
+        WAIT FOR EDGE_CLK * 2;
+        ASSERT result = X"40000000" -- Ожидаем 2^30 (результат -2^31 * -2^31 = 2^62, старшие 32 бита)
+        REPORT "MULH failed!" SEVERITY ERROR;
+        enable <= '0';
+        WAIT FOR EDGE_CLK * 2;
+
+        -- Тест 9: DIV (деление со знаком)
+        enable    <= '1';
+        operand_1 <= X"FFFFFFF6"; -- -10
+        operand_2 <= X"00000005"; -- 5
+        opcode    <= OP_DIV;      -- OP_DIV
+        WAIT FOR EDGE_CLK * 2;
+        ASSERT result = X"FFFFFFFE" -- Ожидаем -2 (-10 / 5)
+        REPORT "DIV failed!" SEVERITY ERROR;
+        enable <= '0';
+        WAIT FOR EDGE_CLK * 2;
+
+        -- Тест 10: DIVU (деление без знака)
+        enable    <= '1';
+        --operand_1 <= X"FFFFFFF6"; -- 4294967286
+        --operand_2 <= X"00000005"; -- 5
+        operand_1 <= X"00000009"; -- 9
+        operand_2 <= X"00000002"; -- 3
+        opcode    <= OP_DIVU;     -- OP_DIVU
+        WAIT FOR EDGE_CLK * 2;
+        --ASSERT result = X"33333332" -- Ожидаем 858993458 (4294967286 / 5)
+        ASSERT result = X"00000004" -- Ожидаем 4(,5) (9 / 2)
+        REPORT "DIVU failed!" SEVERITY ERROR;
+        enable <= '0';
+        WAIT FOR EDGE_CLK * 2;
+
+        -- Тест 11: REM (остаток от деления со знаком)
+        enable    <= '1';
+        operand_1 <= X"FFFFFFF6"; -- -10
+        operand_2 <= X"00000005"; -- 5
+        opcode    <= OP_REM;      -- OP_REM
+        WAIT FOR EDGE_CLK * 2;
+        ASSERT result = X"00000000" -- Ожидаем 0 (-10 % 5)
+        REPORT "REM failed!" SEVERITY ERROR;
+        enable <= '0';
+        WAIT FOR EDGE_CLK * 2;
+
+        -- Тест 12: REMU (остаток от деления без знака)
+        enable    <= '1';
+        operand_1 <= X"FFFFFFF6"; -- 4294967286
+        operand_2 <= X"00000005"; -- 5
+        opcode    <= OP_REMU;     -- OP_REMU
+        WAIT FOR EDGE_CLK * 2;
+        ASSERT result = X"00000001" -- Ожидаем 1 (4294967286 % 5)
+        REPORT "REMU failed!" SEVERITY ERROR;
+        enable <= '0';
+        WAIT FOR EDGE_CLK * 2;
+
         -- Завершение
         test_completed <= '1';
         REPORT "ALU test completed!" SEVERITY NOTE;
