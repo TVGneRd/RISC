@@ -24,10 +24,10 @@ BEGIN
         IF rising_edge(clk) THEN
             IF rst = '1' THEN
                 pc_reg <= (OTHERS => '0');
-            ELSIF stall = '1' THEN
-                pc_reg <= pc_reg; -- ничего не делаем
             ELSIF jump = '1' THEN
                 pc_reg <= jump_addr;
+            ELSIF stall = '1' THEN
+                pc_reg <= pc_reg; -- ничего не делаем
             ELSE
                 pc_reg <= STD_LOGIC_VECTOR(unsigned(pc_reg) + 4);
             END IF;

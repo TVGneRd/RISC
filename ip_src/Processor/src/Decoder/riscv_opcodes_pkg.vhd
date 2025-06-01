@@ -5,6 +5,10 @@ USE IEEE.STD_LOGIC_1164.ALL;
 PACKAGE riscv_opcodes_pkg IS
     -- Перечисляемый тип для OPCODE RV32I
     TYPE riscv_opcode_t IS (
+
+        -- Для некорректных или неподдерживаемых инструкций
+        OP_INVALID,
+
         -- R-тип (OPCODE = 0110011)
         OP_ADD,  -- ADD (funct3 = 000, funct7 = 0000000)
         OP_SUB,  -- SUB (funct3 = 000, funct7 = 0100000)
@@ -70,8 +74,7 @@ PACKAGE riscv_opcodes_pkg IS
         OP_ECALL,  -- ECALL (funct3 = 000, imm = 000000000000)
         OP_EBREAK, -- EBREAK (funct3 = 000, imm = 000000000001)
 
-        -- Для некорректных или неподдерживаемых инструкций
-        OP_INVALID
+        OP_NOP
     );
 
     TYPE riscv_imm_type_t IS (
@@ -80,7 +83,8 @@ PACKAGE riscv_opcodes_pkg IS
         IMM_S_TYPE,
         IMM_B_TYPE,
         IMM_U_TYPE,
-        IMM_J_TYPE
+        IMM_J_TYPE,
+        IMM_INVALID
     );
 
     -- Функция для декодирования OPCODE из инструкции
@@ -96,7 +100,7 @@ PACKAGE BODY riscv_opcodes_pkg IS
         VARIABLE imm12                     : STD_LOGIC_VECTOR(11 DOWNTO 0) := instruction(31 DOWNTO 20);
     BEGIN
         CASE opcode IS
-                -- R-тип (OPCODE = 0110011)
+                -- R-тип и M-тип (OPCODE = 0110011) 
             WHEN "0110011" =>
                 CASE funct3 IS
                     WHEN "000" =>
@@ -140,9 +144,7 @@ PACKAGE BODY riscv_opcodes_pkg IS
                     WHEN OTHERS => RETURN OP_INVALID;
                 END CASE;
 
-                -- I-тип (арифметика, OPCODE = 0010011)
-            WHEN "0010011" =>
-                -- Сначала проверяем расширение M (funct7 = 0000001)
+                -- проверяем расширение M (funct7 = 0000001)
                 IF funct7 = "0000001" THEN
                     CASE funct3 IS
                         WHEN "000"  => RETURN OP_MUL;
@@ -157,6 +159,8 @@ PACKAGE BODY riscv_opcodes_pkg IS
                     END CASE;
                 END IF;
 
+                -- I-тип (арифметика, OPCODE = 0010011)
+            WHEN "0010011" =>
                 CASE funct3 IS
                     WHEN "000" => RETURN OP_ADDI;
                     WHEN "010" => RETURN OP_SLTI;
@@ -233,7 +237,6 @@ PACKAGE BODY riscv_opcodes_pkg IS
                         RETURN OP_EBREAK;
                     END IF;
                 END IF;
-
                 -- Некорректный OPCODE
             WHEN OTHERS => RETURN OP_INVALID;
         END CASE;

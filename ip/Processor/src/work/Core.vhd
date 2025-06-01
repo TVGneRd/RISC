@@ -127,7 +127,7 @@ ARCHITECTURE rtl OF Core IS
   -- 
   -- Конвейеры
   -- 
-  TYPE fetch_state_t IS (RESET, IDLE, REQUEST, WAIT_REQUEST_ACCEPT, WAIT_RESPONSE);
+  TYPE fetch_state_t IS (RESET, IDLE, FAST_FETCH, WAIT_RESPONSE);
   TYPE execution_state_t IS (RESET, IDLE, WAIT_RESULT);
 
   SIGNAL fetch_state     : fetch_state_t     := RESET;
@@ -288,72 +288,108 @@ BEGIN
   -- Precess
   -- 
 
-  fetch : PROCESS (refclk)
+  fetch_state_proc : PROCESS (refclk)
   BEGIN
     IF rising_edge(refclk) THEN
       IF rst = '1' THEN
-        fetch_state         <= IDLE;
-        pc_stall            <= '1';
-        decoder_instruction <= (OTHERS => '0');
+        fetch_state <= RESET;
       ELSE
         CASE fetch_state IS
           WHEN IDLE =>
-            fetch_state         <= REQUEST;
-            r_cache_address     <= PC;
-            decoder_instruction <= (OTHERS => '0');
-            r_cache_valid       <= '0';
-            pc_stall            <= '0';
-
-          WHEN REQUEST =>
-            fetch_state         <= REQUEST;
-            r_cache_address     <= PC;
-            decoder_instruction <= (OTHERS => '0');
-            pc_stall            <= '1';
-
             IF r_cache_ready = '1' THEN
-              r_cache_valid <= '1';
-              fetch_state   <= WAIT_REQUEST_ACCEPT;
+              fetch_state <= FAST_FETCH;
             END IF;
 
-          WHEN WAIT_REQUEST_ACCEPT =>
-            pc_stall <= '1';
-
+          WHEN FAST_FETCH =>
             IF r_cache_ready = '0' THEN
               fetch_state <= WAIT_RESPONSE;
+            ELSE
+              fetch_state <= FAST_FETCH;
+            END IF;
+
+          WHEN WAIT_RESPONSE =>
+            IF r_cache_ready = '1' THEN
+              fetch_state <= FAST_FETCH;
+            END IF;
+
+          WHEN OTHERS =>
+            fetch_state <= IDLE;
+        END CASE;
+      END IF;
+    END IF;
+  END PROCESS fetch_state_proc;
+
+  fetch_output_proc : PROCESS (refclk, fetch_state, r_cache_ready, rst)
+  BEGIN
+    IF falling_edge(refclk) THEN
+      -- Значения по умолчанию
+
+      IF rst = '1' THEN
+        decoder_instruction <= (OTHERS => '0');
+        r_cache_address     <= (OTHERS => '0');
+        r_cache_valid       <= '0';
+        pc_stall            <= '1';
+      ELSE
+        CASE fetch_state IS
+          WHEN IDLE =>
+            r_cache_address <= PC;
+            r_cache_valid   <= '1';
+            pc_stall        <= '1';
+
+          WHEN FAST_FETCH =>
+            IF r_cache_ready = '0' THEN
+              decoder_instruction <= (OTHERS => '0');
+              r_cache_address     <= PC;
+              r_cache_valid       <= '0';
+              pc_stall            <= '0';
+            ELSE
+              decoder_instruction <= r_cache_data;
+              r_cache_address     <= PC;
+              r_cache_valid       <= '1';
+              pc_stall            <= '0';
             END IF;
 
           WHEN WAIT_RESPONSE =>
             pc_stall <= '1';
-
             IF r_cache_ready = '1' THEN
-              fetch_state         <= IDLE;
               decoder_instruction <= r_cache_data;
-              r_cache_valid       <= '0';
+              r_cache_address     <= PC;
+              r_cache_valid       <= '1';
+              pc_stall            <= '0';
             END IF;
 
-          WHEN OTHERS =>
-            fetch_state         <= IDLE;
+          WHEN OTHERS                    =>
             decoder_instruction <= (OTHERS => '0');
             r_cache_address     <= (OTHERS => '0');
             r_cache_valid       <= '0';
             pc_stall            <= '1';
-
         END CASE;
       END IF;
     END IF;
-  END PROCESS fetch;
+  END PROCESS fetch_output_proc;
 
   decode : PROCESS (refclk)
   BEGIN
     IF rising_edge(refclk) THEN
       IF rst = '1' THEN
-
+        execution_control   <= INVALID_CONTROL;
+        execution_rd_addr   <= (OTHERS => '0');
+        opcode              <= OP_INVALID;
+        operand_1           <= (OTHERS => '0');
+        operand_2           <= (OTHERS => '0');
+        control_pc_in       <= (OTHERS => '0');
+        control_rs1         <= (OTHERS => '0');
+        control_rs2         <= (OTHERS => '0');
+        control_imm         <= (OTHERS => '0');
+        control_unit_enable <= '0';
+        alu_enable          <= '0';
       ELSE
         execution_control <= decoder_control;
         execution_rd_addr <= decoder_rd_addr;
+        opcode            <= decoder_control.opcode;
+
         IF decoder_control.alu_en = '1' THEN
           -- ALU
-          opcode    <= decoder_control.opcode;
           operand_1 <= decoder_rs1;
 
           IF decoder_control.imm_type = IMM_I_TYPE THEN
@@ -364,9 +400,7 @@ BEGIN
           alu_enable <= '1';
         ELSIF decoder_control.branch = '1' OR decoder_control.jump = '1' THEN
           -- ControlUnit
-          opcode <= decoder_control.opcode;
-
-          control_pc_in <= STD_LOGIC_VECTOR(resize(unsigned(PC), 32));
+          control_pc_in <= STD_LOGIC_VECTOR(resize(unsigned(PC) - 1 * 4, 32)); -- отнимаем 1 команду т.к это уже второй этап конвейера
 
           control_rs1 <= decoder_rs1;
           control_rs2 <= decoder_rs2;
@@ -390,15 +424,29 @@ BEGIN
         result_controller_result  <= (OTHERS => '0');
         result_controller_rd_addr <= (OTHERS => '0');
         pc_jump_flag              <= '0';
+        pc_jump_addr              <= (OTHERS => '0');
       ELSE
         IF execution_control.reg_write = '1' THEN
-          pc_jump_flag              <= '0';
+          pc_jump_flag <= '0';
+          pc_jump_addr <= (OTHERS => '0');
+
           result_controller_enable  <= '1';
           result_controller_result  <= alu_result;
           result_controller_rd_addr <= execution_rd_addr;
+
         ELSIF control_jump = '1' AND (execution_control.branch = '1' OR execution_control.jump = '1') THEN
-          pc_jump_flag <= '1';
           pc_jump_addr <= control_pc_out(11 DOWNTO 0);
+          pc_jump_flag <= '1';
+
+          result_controller_enable  <= '0';
+          result_controller_result  <= (OTHERS => '0');
+          result_controller_rd_addr <= (OTHERS => '0');
+        ELSE
+          result_controller_enable  <= '0';
+          result_controller_result  <= (OTHERS => '0');
+          result_controller_rd_addr <= (OTHERS => '0');
+          pc_jump_flag              <= '0';
+          pc_jump_addr              <= (OTHERS => '0');
         END IF;
       END IF;
     END IF;

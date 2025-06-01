@@ -28,10 +28,10 @@ END ENTITY ResultController;
 
 ARCHITECTURE rtl OF ResultController IS
   -- Сигналы для соединения с модулем Registers
-  SIGNAL reg_addr_internal  : STD_LOGIC_VECTOR(4 DOWNTO 0);
-  SIGNAL reg_data_internal  : STD_LOGIC_VECTOR(31 DOWNTO 0);
-  SIGNAL reg_write_internal : STD_LOGIC;
-  SIGNAL data_out_unused    : STD_LOGIC_VECTOR(31 DOWNTO 0); -- Не используется
+  SIGNAL reg_addr_internal  : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0');
+  SIGNAL reg_data_internal  : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL reg_write_internal : STD_LOGIC                     := '0';
+  SIGNAL data_out_unused    : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Не используется
 
 BEGIN
   -- Логика управления записью
@@ -43,7 +43,7 @@ BEGIN
       reg_write_internal <= '0';
     ELSIF rising_edge(refclk) THEN
       IF enable = '1' THEN
-        reg_addr_internal  <= rd_addr; -- Расширяем 5-битный адрес до 6 бит
+        reg_addr_internal  <= rd_addr;
         reg_data_internal  <= result;
         reg_write_internal <= '1';
       ELSE
