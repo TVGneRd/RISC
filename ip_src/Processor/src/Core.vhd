@@ -155,6 +155,9 @@ BEGIN
     );
 
   cache : ENTITY work.Cache
+    GENERIC MAP(
+      cache_size => 4 * 64
+    )
     PORT MAP(
       refclk => refclk,
       rst    => rst,
@@ -354,7 +357,7 @@ BEGIN
             decoder_instruction <= (OTHERS => '0');
             r_cache_address     <= PC;
             r_cache_valid       <= '0';
-            pc_stall_fetch      <= '0';
+            pc_stall_fetch      <= '1';
           ELSE
             decoder_instruction <= r_cache_data;
             r_cache_address     <= PC;
@@ -380,7 +383,7 @@ BEGIN
     END IF;
   END PROCESS fetch_output_proc;
 
-  decode : PROCESS (rst, PC, result_controller_rd_addr, result_controller_enable)
+  decode : PROCESS (rst, PC, decoder_instruction, result_controller_rd_addr, result_controller_enable)
   BEGIN
     IF rst = '1' THEN
       execution_control   <= INVALID_CONTROL;

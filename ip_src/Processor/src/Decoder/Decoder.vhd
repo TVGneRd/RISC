@@ -62,19 +62,19 @@ BEGIN
 
   -- Формирование непосредственных значений
   -- I-тип: imm[11:0] = inst[31:20]
-  imm_i <= STD_LOGIC_VECTOR(resize(SIGNED(instruction(31 DOWNTO 20)), 32));
+  imm_i <= STD_LOGIC_VECTOR(resize(UNSIGNED(instruction(31 DOWNTO 20)), 32));
 
   -- S-тип: imm[11:5] = inst[31:25], imm[4:0] = inst[11:7]
-  imm_s <= STD_LOGIC_VECTOR(resize(SIGNED(instruction(31 DOWNTO 25) & instruction(11 DOWNTO 7)), 32));
+  imm_s <= STD_LOGIC_VECTOR(resize(UNSIGNED(instruction(31 DOWNTO 25) & instruction(11 DOWNTO 7)), 32));
 
   -- B-тип: imm[12|10:5|4:1|11] = {inst[31], inst[7], inst[30:25], inst[11:8], 0}
-  imm_b <= STD_LOGIC_VECTOR(resize(SIGNED(instruction(31) & instruction(7) & instruction(30 DOWNTO 25) & instruction(11 DOWNTO 8) & '0'), 32));
+  imm_b <= STD_LOGIC_VECTOR(resize(UNSIGNED(instruction(31) & instruction(7) & instruction(30 DOWNTO 25) & instruction(11 DOWNTO 8) & '0'), 32));
 
   -- U-тип: imm[31:12] = inst[31:12], imm[11:0] = 0
   imm_u <= instruction(31 DOWNTO 12) & (11 DOWNTO 0 => '0');
 
   -- J-тип: imm[20|10:1|11|19:12] = {inst[31], inst[19:12], inst[20], inst[30:21], 0}
-  imm_j <= STD_LOGIC_VECTOR(resize(SIGNED(instruction(31) & instruction(19 DOWNTO 12) & instruction(20) & instruction(30 DOWNTO 21) & '0'), 32));
+  imm_j <= STD_LOGIC_VECTOR(resize(UNSIGNED(instruction(31) & instruction(19 DOWNTO 12) & instruction(20) & instruction(30 DOWNTO 21) & '0'), 32));
 
   -- Декодирование инструкции и формирование управляющих сигналов
   PROCESS (clk, opcode, funct3, funct7)

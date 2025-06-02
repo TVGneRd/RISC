@@ -113,7 +113,7 @@ ARCHITECTURE rtl OF Cache IS
   SIGNAL read_cache_hit : BOOLEAN := false;
 
 BEGIN
-  read_cache_hit <= unsigned(r_address) <= unsigned(cache_upper_bound) AND unsigned(r_address) >= (unsigned(cache_upper_bound) - cache_size + 1);
+  read_cache_hit <= unsigned(r_address) <= (unsigned(cache_upper_bound) + 2) AND unsigned(r_address) >= (unsigned(cache_upper_bound) - cache_size + 1);
 
   reader : ENTITY work.axi4_reader
     PORT MAP(
