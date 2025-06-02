@@ -42,7 +42,7 @@ BEGIN
   data_out_i_1 <= registers_i(to_integer(unsigned(addr_out_i_1))); -- Записывает в data_out_i чему равен регистр по адресу addr_i
   data_out_i_2 <= registers_i(to_integer(unsigned(addr_out_i_2))); -- Записывает в data_out_i чему равен регистр по адресу addr_i
 
-  handle : PROCESS (write_enable, addr_in_i, data_in_i)
+  handle : PROCESS (rst, write_enable, addr_in_i, data_in_i)
   BEGIN
     IF rst = '1' THEN
       registers_i <= (OTHERS => (OTHERS => '0'));

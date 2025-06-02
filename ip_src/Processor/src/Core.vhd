@@ -20,6 +20,9 @@ USE work.riscv_opcodes_pkg.ALL;
 -------------------------------------
 
 ENTITY Core IS
+  GENERIC (
+    cache_size : INTEGER := 64
+  );
   PORT (
     refclk : IN STD_LOGIC;--! reference clock expect 250Mhz
     rst    : IN STD_LOGIC; --! sync active high reset. sync -> refclk
@@ -156,7 +159,7 @@ BEGIN
 
   cache : ENTITY work.Cache
     GENERIC MAP(
-      cache_size => 4 * 64
+      cache_size => cache_size
     )
     PORT MAP(
       refclk => refclk,

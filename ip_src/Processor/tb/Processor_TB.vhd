@@ -47,6 +47,9 @@ ARCHITECTURE rtl OF Processor_TB IS
   SIGNAL M_AXI_BREADY : STD_LOGIC                    := '0';
 
   COMPONENT Processor_TOP IS
+    GENERIC (
+      cache_size : INTEGER := 64
+    );
     PORT (
       refclk : IN STD_LOGIC; --! reference clock expect 250Mhz
       rst    : IN STD_LOGIC; --! sync active high reset. sync -> refclk
@@ -152,6 +155,9 @@ ARCHITECTURE rtl OF Processor_TB IS
 BEGIN
 
   Processor_TOP_inst : Processor_TOP
+  GENERIC MAP(
+    cache_size => 64
+  )
   PORT MAP
   (
     refclk => refclk,

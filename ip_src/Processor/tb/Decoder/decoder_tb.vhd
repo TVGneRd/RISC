@@ -281,7 +281,7 @@ BEGIN
         expected_rd_addr    => "00001", -- x1
         expected_imm => "00010010001101000101" & (11 DOWNTO 0 => '0'),
         expected_opcode     => OP_LUI,
-        expected_alu_en     => '0',
+        expected_alu_en     => '1',
         expected_reg_write  => '1',
         expected_mem_read   => '0',
         expected_mem_write  => '0',

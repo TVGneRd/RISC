@@ -12,6 +12,9 @@ USE IEEE.numeric_std.ALL;--! for the signed, unsigned types and arithmetic ops
 -------------------------------------
 
 ENTITY Processor_TOP IS
+  GENERIC (
+    cache_size : INTEGER := 64 * 4
+  );
   PORT (
     refclk : IN STD_LOGIC; --! reference clock expect 250Mhz
     rst    : IN STD_LOGIC; --! sync active high reset. sync -> refclk
@@ -50,6 +53,9 @@ END ENTITY Processor_TOP;
 ARCHITECTURE rtl OF Processor_TOP IS
 BEGIN
   core_1 : ENTITY work.Core
+    GENERIC MAP(
+      cache_size => cache_size
+    )
     PORT MAP(
       refclk => refclk,
       rst    => rst,

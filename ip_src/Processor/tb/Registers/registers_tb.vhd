@@ -59,48 +59,47 @@ BEGIN
         addr_in      <= "00000"; -- x0
         data_in      <= x"DEADBEEF";
         write_enable <= '1';
-        WAIT FOR EDGE_CLK;
+        WAIT FOR EDGE_CLK * 2;
 
         -- Проверка, что x0 всё ещё 0
         write_enable <= '0';
         addr_out_1   <= "00000"; -- x0
-        WAIT FOR EDGE_CLK;
+        WAIT FOR EDGE_CLK * 2;
         ASSERT data_out_1 = x"00000000"
         REPORT "Error: Register x0 cannot be not a 0!" SEVERITY ERROR;
 
         -- Запись в x5
         addr_in      <= "00101"; -- x5
-        addr_out_1   <= "00000"; -- x0
         data_in      <= x"12345678";
         write_enable <= '1';
-        WAIT FOR EDGE_CLK;
+        WAIT FOR EDGE_CLK * 2;
 
         -- Чтение из x5
         write_enable <= '0';
         addr_out_1   <= "00101"; -- x5
-        WAIT FOR EDGE_CLK;
+        WAIT FOR EDGE_CLK * 2;
         ASSERT data_out_1 = x"12345678"
         REPORT "Error: Invalid data in register x5" SEVERITY ERROR;
 
         -- Повторная запись в x5
         data_in      <= x"AABBCCDD";
         write_enable <= '1';
-        WAIT FOR EDGE_CLK;
+        WAIT FOR EDGE_CLK * 2;
 
         -- Проверка обновления x5
         write_enable <= '0';
-        WAIT FOR EDGE_CLK;
+        WAIT FOR EDGE_CLK * 2;
         addr_out_1 <= "00101"; -- x5
         ASSERT data_out_1 = x"AABBCCDD"
         REPORT "Error: Register x5 has invalid value" SEVERITY ERROR;
 
         -- Проверка сброса
         reset <= '1';
-        WAIT FOR EDGE_CLK;
+        WAIT FOR EDGE_CLK * 2;
         reset      <= '0';
         addr_in    <= "00101"; -- x5
         addr_out_1 <= "00101"; -- x5
-        WAIT FOR EDGE_CLK;
+        WAIT FOR EDGE_CLK * 2;
         ASSERT data_out_1 = x"00000000"
         REPORT "Error: Register x5 has invalid zero value" SEVERITY ERROR;
 
@@ -109,12 +108,12 @@ BEGIN
         addr_in      <= "00000"; -- x0
         data_in      <= x"DEADBEEF";
         write_enable <= '1';
-        WAIT FOR EDGE_CLK;
+        WAIT FOR EDGE_CLK * 2;
 
         -- Проверка, что x0 всё ещё 0
         write_enable <= '0';
         addr_out_2   <= "00000"; -- x0
-        WAIT FOR EDGE_CLK;
+        WAIT FOR EDGE_CLK * 2;
         ASSERT data_out_2 = x"00000000"
         REPORT "Error: Register x0 cannot be not a 0!" SEVERITY ERROR;
 
@@ -123,34 +122,34 @@ BEGIN
         addr_out_2   <= "00000"; -- x0
         data_in      <= x"12345678";
         write_enable <= '1';
-        WAIT FOR EDGE_CLK;
+        WAIT FOR EDGE_CLK * 2;
 
         -- Чтение из x5
         write_enable <= '0';
         addr_out_2   <= "00101"; -- x5
-        WAIT FOR EDGE_CLK;
+        WAIT FOR EDGE_CLK * 2;
         ASSERT data_out_2 = x"12345678"
         REPORT "Error: Invalid data in register x5" SEVERITY ERROR;
 
         -- Повторная запись в x5
         data_in      <= x"AABBCCDD";
         write_enable <= '1';
-        WAIT FOR EDGE_CLK;
+        WAIT FOR EDGE_CLK * 2;
 
         -- Проверка обновления x5
         write_enable <= '0';
-        WAIT FOR EDGE_CLK;
+        WAIT FOR EDGE_CLK * 2;
         addr_out_2 <= "00101"; -- x5
         ASSERT data_out_2 = x"AABBCCDD"
         REPORT "Error: Register x5 has invalid value" SEVERITY ERROR;
 
         -- Проверка сброса
         reset <= '1';
-        WAIT FOR EDGE_CLK;
+        WAIT FOR EDGE_CLK * 2;
         reset      <= '0';
         addr_in    <= "00101"; -- x5
         addr_out_2 <= "00101"; -- x5
-        WAIT FOR EDGE_CLK;
+        WAIT FOR EDGE_CLK * 2;
         ASSERT data_out_2 = x"00000000"
         REPORT "Error: Register x5 has invalid zero value" SEVERITY ERROR;
 

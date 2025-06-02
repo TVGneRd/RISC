@@ -255,7 +255,7 @@
         <spirit:parameters>
           <spirit:parameter>
             <spirit:name>viewChecksum</spirit:name>
-            <spirit:value>53509f5c</spirit:value>
+            <spirit:value>8c8bd732</spirit:value>
           </spirit:parameter>
         </spirit:parameters>
       </spirit:view>
@@ -271,7 +271,7 @@
         <spirit:parameters>
           <spirit:parameter>
             <spirit:name>viewChecksum</spirit:name>
-            <spirit:value>53509f5c</spirit:value>
+            <spirit:value>8c8bd732</spirit:value>
           </spirit:parameter>
         </spirit:parameters>
       </spirit:view>
@@ -286,7 +286,7 @@
         <spirit:parameters>
           <spirit:parameter>
             <spirit:name>viewChecksum</spirit:name>
-            <spirit:value>050dc22c</spirit:value>
+            <spirit:value>b020cb05</spirit:value>
           </spirit:parameter>
         </spirit:parameters>
       </spirit:view>
@@ -300,7 +300,7 @@
         <spirit:parameters>
           <spirit:parameter>
             <spirit:name>viewChecksum</spirit:name>
-            <spirit:value>f92e9879</spirit:value>
+            <spirit:value>fcf4fb0a</spirit:value>
           </spirit:parameter>
         </spirit:parameters>
       </spirit:view>
@@ -652,6 +652,13 @@
         </spirit:wire>
       </spirit:port>
     </spirit:ports>
+    <spirit:modelParameters>
+      <spirit:modelParameter xsi:type="spirit:nameValueTypeType" spirit:dataType="INTEGER">
+        <spirit:name>cache_size</spirit:name>
+        <spirit:displayName>Cache Size</spirit:displayName>
+        <spirit:value spirit:format="long" spirit:resolve="generated" spirit:id="MODELPARAM_VALUE.cache_size">256</spirit:value>
+      </spirit:modelParameter>
+    </spirit:modelParameters>
   </spirit:model>
   <spirit:fileSets>
     <spirit:fileSet>
@@ -731,7 +738,7 @@
       <spirit:file>
         <spirit:name>src/work/Processor_TOP.vhd</spirit:name>
         <spirit:fileType>vhdlSource</spirit:fileType>
-        <spirit:userFileType>CHECKSUM_84bde46f</spirit:userFileType>
+        <spirit:userFileType>CHECKSUM_fd81843b</spirit:userFileType>
         <spirit:userFileType>IMPORTED_FILE</spirit:userFileType>
         <spirit:logicalName>work</spirit:logicalName>
       </spirit:file>
@@ -881,13 +888,18 @@
       <spirit:file>
         <spirit:name>xgui/Processor_v1_0.tcl</spirit:name>
         <spirit:fileType>tclSource</spirit:fileType>
-        <spirit:userFileType>CHECKSUM_f92e9879</spirit:userFileType>
+        <spirit:userFileType>CHECKSUM_fcf4fb0a</spirit:userFileType>
         <spirit:userFileType>XGUI_VERSION_2</spirit:userFileType>
       </spirit:file>
     </spirit:fileSet>
   </spirit:fileSets>
   <spirit:description>Program memory</spirit:description>
   <spirit:parameters>
+    <spirit:parameter>
+      <spirit:name>cache_size</spirit:name>
+      <spirit:displayName>Cache Size</spirit:displayName>
+      <spirit:value spirit:format="long" spirit:resolve="user" spirit:id="PARAM_VALUE.cache_size">256</spirit:value>
+    </spirit:parameter>
     <spirit:parameter>
       <spirit:name>Component_Name</spirit:name>
       <spirit:value spirit:resolve="user" spirit:id="PARAM_VALUE.Component_Name" spirit:order="1">Processor_TOP_v1_0</spirit:value>
@@ -917,15 +929,16 @@
       <xilinx:definitionSource>package_project</xilinx:definitionSource>
       <xilinx:vendorDisplayName>SUAI</xilinx:vendorDisplayName>
       <xilinx:coreRevision>1</xilinx:coreRevision>
-      <xilinx:coreCreationDateTime>2025-06-02T00:18:59Z</xilinx:coreCreationDateTime>
+      <xilinx:coreCreationDateTime>2025-06-02T08:12:10Z</xilinx:coreCreationDateTime>
     </xilinx:coreExtensions>
     <xilinx:packagingInfo>
       <xilinx:xilinxVersion>2022.2.2</xilinx:xilinxVersion>
       <xilinx:checksum xilinx:scope="busInterfaces" xilinx:value="cdbd9807"/>
       <xilinx:checksum xilinx:scope="addressSpaces" xilinx:value="b945f56d"/>
-      <xilinx:checksum xilinx:scope="fileGroups" xilinx:value="459bf5b2"/>
+      <xilinx:checksum xilinx:scope="fileGroups" xilinx:value="cadf0b13"/>
       <xilinx:checksum xilinx:scope="ports" xilinx:value="378493c9"/>
-      <xilinx:checksum xilinx:scope="parameters" xilinx:value="30eee5ee"/>
+      <xilinx:checksum xilinx:scope="hdlParameters" xilinx:value="4d239b3e"/>
+      <xilinx:checksum xilinx:scope="parameters" xilinx:value="d2e04c5e"/>
     </xilinx:packagingInfo>
   </spirit:vendorExtensions>
 </spirit:component>
