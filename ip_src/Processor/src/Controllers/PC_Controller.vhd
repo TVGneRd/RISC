@@ -3,6 +3,9 @@ USE IEEE.STD_LOGIC_1164.ALL;
 USE IEEE.NUMERIC_STD.ALL;
 
 ENTITY PC_Controller IS
+    GENERIC (
+        NUM_PIPELINES      : INTEGER := 1
+    );
     PORT (
         clk : IN STD_LOGIC;
         rst : IN STD_LOGIC;
@@ -27,7 +30,7 @@ BEGIN
                 ELSIF jump = '1' THEN
                     pc_reg <= jump_addr;
                 ELSE
-                    pc_reg <= STD_LOGIC_VECTOR(unsigned(pc_reg) + 4);
+                    pc_reg <= STD_LOGIC_VECTOR(unsigned(pc_reg) + 4 * NUM_PIPELINES);
                 END IF;
             END IF;
         ELSE

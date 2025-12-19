@@ -349,8 +349,8 @@ BEGIN
 
     ASSERT M_AXI_ARVALID = '1' REPORT "M_AXI_ARVALID != '1'" SEVERITY ERROR;
 
-    -- PC(0x14) + 0x20 * 4 = 148 (0x94)
-    ASSERT unsigned(M_AXI_ARADDR) = 16#94# REPORT "Program should have requested the address 0x94 (PC(0x14) + 0x20 * 4) is 0x" & to_hstring(to_bitvector(M_AXI_ARADDR)) SEVERITY ERROR;
+    -- JAL на адресе 0x14 с immediate 0x20: PC = 0x14 + 0x20 = 0x34 (52)
+    ASSERT unsigned(M_AXI_ARADDR) = 16#34# REPORT "Program should have requested the address 0x34 (PC(0x14) + 0x20) but got 0x" & to_hstring(to_bitvector(M_AXI_ARADDR)) SEVERITY ERROR;
 
     core_test_completed <= '1';
 

@@ -18,15 +18,17 @@ USE IEEE.numeric_std.ALL;--! for the signed, unsigned types and arithmetic ops
 
 ENTITY Cache IS
   GENERIC (
-    cache_size : INTEGER := 64
+    cache_size      : INTEGER := 64;
+    read_word_size  : INTEGER := 1  
   );
   PORT (
     refclk : IN STD_LOGIC;--! reference clock expect 250Mhz
     rst    : IN STD_LOGIC;--! sync active high reset. sync -> refclk
 
     -- (КАНАЛ ЧТЕНИЯ) Порты для взаимодействия с ядром процессором, через него возвращаются данные из кэша
-    r_address : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-    r_data    : OUT STD_LOGIC_VECTOR(31 DOWNTO 0);
+    -- Расширенная шина на 4 команды (128 бит = 4 x 32 бита)
+    r_address : IN STD_LOGIC_VECTOR(11 DOWNTO 0);  -- Базовый адрес (выровненный по 16 байт)
+    r_data    : OUT STD_LOGIC_VECTOR((32 * read_word_size - 1) DOWNTO 0); -- 4 команды: [127:96]=cmd3, [95:64]=cmd2, [63:32]=cmd1, [31:0]=cmd0
     r_valid   : IN STD_LOGIC;
     r_ready   : OUT STD_LOGIC;
 
@@ -249,12 +251,20 @@ BEGIN
 
   -- The state decides the output
   r_output_decider : PROCESS (refclk, r_cur_state, read_cache_hit)
+    VARIABLE base_addr : INTEGER;
+    VARIABLE word_offset : INTEGER;
   BEGIN
     IF rising_edge(refclk) THEN
-      r_data <= cache_data(to_integer((unsigned(r_address) + 3) MOD cache_size)) & -- Байт 3 (старший)
-        cache_data(to_integer((unsigned(r_address) + 2) MOD cache_size)) &           -- Байт 2
-        cache_data(to_integer((unsigned(r_address) + 1) MOD cache_size)) &           -- Байт 1
-        cache_data(to_integer(unsigned(r_address) MOD cache_size));                  -- Байт 0 (младший)
+      base_addr := to_integer(unsigned(r_address));
+      -- Универсальное чтение read_word_size 32-битных слов
+      FOR word_idx IN 0 TO read_word_size - 1 LOOP
+        word_offset := word_idx * 4; -- Каждое слово = 4 байта
+        r_data((word_idx + 1) * 32 - 1 DOWNTO word_idx * 32) <= 
+          cache_data((base_addr + word_offset + 3) MOD cache_size) &
+          cache_data((base_addr + word_offset + 2) MOD cache_size) &
+          cache_data((base_addr + word_offset + 1) MOD cache_size) &
+          cache_data((base_addr + word_offset) MOD cache_size);
+      END LOOP;
     END IF;
 
     CASE r_cur_state IS

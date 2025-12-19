@@ -19,16 +19,7 @@ ENTITY Decoder IS
 
     instruction : IN STD_LOGIC_VECTOR(31 DOWNTO 0); -- Входная инструкция
 
-    reg_addr_out_i_1 : OUT STD_LOGIC_VECTOR(4 DOWNTO 0); -- адрес регистра (0-31)
-    reg_data_out_i_1 : IN STD_LOGIC_VECTOR(31 DOWNTO 0); -- данные регистра по адресу
-
-    reg_addr_out_i_2 : OUT STD_LOGIC_VECTOR(4 DOWNTO 0); -- адрес регистра (0-31)
-    reg_data_out_i_2 : IN STD_LOGIC_VECTOR(31 DOWNTO 0); -- данные регистра по адресу
-
     rd_addr : OUT STD_LOGIC_VECTOR(4 DOWNTO 0); -- Адрес регистра rd
-
-    rs1 : OUT STD_LOGIC_VECTOR(31 DOWNTO 0); -- адрес регистра (0-31)
-    rs2 : OUT STD_LOGIC_VECTOR(31 DOWNTO 0); -- адрес регистра (0-31)
 
     rs1_addr : OUT STD_LOGIC_VECTOR(4 DOWNTO 0); -- адрес регистра 1
     rs2_addr : OUT STD_LOGIC_VECTOR(4 DOWNTO 0); -- адрес регистра 2
@@ -223,17 +214,17 @@ BEGIN
         ctrl.reg_write <= '0';
     END CASE;
 
-    IF ctrl.imm_type = IMM_R_TYPE OR ctrl.imm_type = IMM_S_TYPE OR ctrl.imm_type = IMM_B_TYPE THEN
-      reg_addr_out_i_2 <= rs2_address;
-    ELSE
-      reg_addr_out_i_2 <= (OTHERS => '0');
-    END IF;
+    -- IF ctrl.imm_type = IMM_R_TYPE OR ctrl.imm_type = IMM_S_TYPE OR ctrl.imm_type = IMM_B_TYPE THEN
+    --   reg_addr_out_i_2 <= rs2_address;
+    -- ELSE
+    --   reg_addr_out_i_2 <= (OTHERS => '0');
+    -- END IF;
 
-    IF ctrl.imm_type = IMM_R_TYPE OR ctrl.imm_type = IMM_I_TYPE OR ctrl.imm_type = IMM_S_TYPE OR ctrl.imm_type = IMM_B_TYPE THEN
-      reg_addr_out_i_1 <= rs1_address;
-    ELSE
-      reg_addr_out_i_1 <= (OTHERS => '0');
-    END IF;
+    -- IF ctrl.imm_type = IMM_R_TYPE OR ctrl.imm_type = IMM_I_TYPE OR ctrl.imm_type = IMM_S_TYPE OR ctrl.imm_type = IMM_B_TYPE THEN
+    --   reg_addr_out_i_1 <= rs1_address;
+    -- ELSE
+    --   reg_addr_out_i_1 <= (OTHERS => '0');
+    -- END IF;
 
   END PROCESS;
 
@@ -250,11 +241,6 @@ BEGIN
 
   rs1_addr <= instruction(19 DOWNTO 15);
   rs2_addr <= instruction(24 DOWNTO 20);
-
-  rs1 <= reg_data_out_i_1 WHEN ctrl.imm_type = IMM_R_TYPE OR ctrl.imm_type = IMM_I_TYPE OR ctrl.imm_type = IMM_S_TYPE OR ctrl.imm_type = IMM_B_TYPE ELSE
-    (OTHERS => '0');
-  rs2 <= reg_data_out_i_2 WHEN ctrl.imm_type = IMM_R_TYPE OR ctrl.imm_type = IMM_S_TYPE OR ctrl.imm_type = IMM_B_TYPE ELSE
-    (OTHERS => '0');
 
   rd_addr <= rd WHEN ctrl.imm_type /= IMM_S_TYPE AND ctrl.imm_type /= IMM_B_TYPE ELSE
     (OTHERS => '0');

@@ -1,4 +1,3 @@
-
 LIBRARY IEEE;--! standard library IEEE (Institute of Electrical and Electronics Engineers)
 USE IEEE.std_logic_1164.ALL;--! standard unresolved logic UX01ZWLH-
 USE IEEE.numeric_std.ALL;--! for the signed, unsigned types and arithmetic ops
@@ -7,10 +6,9 @@ USE work.riscv_opcodes_pkg.ALL;
 
 -- -- -- -- Задача блока: -- -- -- --
 -- 1. Подключение регистров и распространение его в остальные модули 
--- 2. Конвейер, 4 ступени
--- 3. Передача команды в декодер
--- 4. Передача данных на АЛУ
--- 5. Запись данных в результирующий/регистр
+-- 2. Управление 4-мя конвейерами
+-- 3. Арбитраж доступа к общим ресурсам (кэш, регистры)
+-- 4. PC контроллер для распределения инструкций
 ------------------------------------
 
 -- -- -- -- Распределение: -- -- -- --
@@ -21,39 +19,40 @@ USE work.riscv_opcodes_pkg.ALL;
 
 ENTITY Core IS
   GENERIC (
-    cache_size : INTEGER := 64
+    cache_size : INTEGER := 64;
+    NUM_PIPELINES : INTEGER := 4 -- Количество конвейеров
   );
   PORT (
     refclk : IN STD_LOGIC;--! reference clock expect 250Mhz
-    rst    : IN STD_LOGIC; --! sync active high reset. sync -> refclk
+    rst : IN STD_LOGIC; --! sync active high reset. sync -> refclk
 
     -- AXI-4 MM (Только Reader) Ports
     --  Read address channel signals
-    M_AXI_ARADDR  : OUT STD_LOGIC_VECTOR(11 DOWNTO 0);
-    M_AXI_ARLEN   : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+    M_AXI_ARADDR : OUT STD_LOGIC_VECTOR(11 DOWNTO 0);
+    M_AXI_ARLEN : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
     M_AXI_ARVALID : OUT STD_LOGIC;
     M_AXI_ARREADY : IN STD_LOGIC;
 
     -- Read data channel signals
-    M_AXI_RDATA  : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-    M_AXI_RRESP  : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
-    M_AXI_RLAST  : IN STD_LOGIC;
+    M_AXI_RDATA : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+    M_AXI_RRESP : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
+    M_AXI_RLAST : IN STD_LOGIC;
     M_AXI_RVALID : IN STD_LOGIC;
     M_AXI_RREADY : OUT STD_LOGIC;
     -- /AXI-4 MM (Только Reader) Ports
 
-    M_AXI_AWADDR  : OUT STD_LOGIC_VECTOR(11 DOWNTO 0);
-    M_AXI_AWLEN   : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+    M_AXI_AWADDR : OUT STD_LOGIC_VECTOR(11 DOWNTO 0);
+    M_AXI_AWLEN : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
     M_AXI_AWVALID : OUT STD_LOGIC;
     M_AXI_AWREADY : IN STD_LOGIC;
 
     -- Read data channel signals
-    M_AXI_WDATA  : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
-    M_AXI_WLAST  : OUT STD_LOGIC; -- всегда 1
+    M_AXI_WDATA : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+    M_AXI_WLAST : OUT STD_LOGIC; -- всегда 1
     M_AXI_WVALID : OUT STD_LOGIC;
     M_AXI_WREADY : IN STD_LOGIC;
 
-    M_AXI_BRESP  : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
+    M_AXI_BRESP : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
     M_AXI_BVALID : IN STD_LOGIC;
     M_AXI_BREADY : OUT STD_LOGIC
   );
@@ -61,490 +60,484 @@ END ENTITY Core;
 
 ARCHITECTURE rtl OF Core IS
 
-  SIGNAL PC                 : STD_LOGIC_VECTOR(11 DOWNTO 0);
-  SIGNAL pc_stall           : STD_LOGIC                     := '0';
-  SIGNAL pc_stall_fetch     : STD_LOGIC                     := '0';
-  SIGNAL pc_stall_decoder   : STD_LOGIC                     := '0';
-  SIGNAL pc_stall_execution : STD_LOGIC                     := '0';
-  SIGNAL pc_jump_flag       : STD_LOGIC                     := '0';
-  SIGNAL pc_jump_addr       : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
+  -- ========================================
+  -- PC Controller signals
+  -- ========================================
+  SIGNAL PC : STD_LOGIC_VECTOR(11 DOWNTO 0);
+  SIGNAL pc_stall : STD_LOGIC := '0';
+  SIGNAL pc_jump_flag : STD_LOGIC := '0';
+  SIGNAL pc_jump_addr : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
 
-  -- Cache
+  -- PC для каждого конвейера (смещенный)
+  TYPE pc_array_t IS ARRAY (0 TO NUM_PIPELINES - 1) OF STD_LOGIC_VECTOR(11 DOWNTO 0);
+  SIGNAL pc_pipeline : pc_array_t;
+
+  -- ========================================
+  -- Cache signals
+  -- ========================================
   SIGNAL r_cache_address : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
-  SIGNAL r_cache_data    : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
-  SIGNAL r_cache_valid   : STD_LOGIC                     := '0';
-  SIGNAL r_cache_ready   : STD_LOGIC                     := '0';
+  SIGNAL r_cache_data : STD_LOGIC_VECTOR(127 DOWNTO 0) := (OTHERS => '0'); -- 4 команды
+  SIGNAL r_cache_valid : STD_LOGIC := '0';
+  SIGNAL r_cache_ready : STD_LOGIC := '0';
 
   SIGNAL w_cache_address : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
-  SIGNAL w_cache_data    : STD_LOGIC_VECTOR(7 DOWNTO 0)  := (OTHERS => '0');
-  SIGNAL w_cache_valid   : STD_LOGIC                     := '0';
-  SIGNAL w_cache_ready   : STD_LOGIC                     := '0';
-  -- /Cache
+  SIGNAL w_cache_data : STD_LOGIC_VECTOR(7 DOWNTO 0) := (OTHERS => '0');
+  SIGNAL w_cache_valid : STD_LOGIC := '0';
+  SIGNAL w_cache_ready : STD_LOGIC := '0';
 
-  -- Decoder
-  SIGNAL decoder_instruction : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Входная инструкция
-  SIGNAL decoder_rs1         : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Адрес регистра rs1
-  SIGNAL decoder_rs1_addr    : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0'); -- Адрес регистра rs1
-  SIGNAL decoder_rs2         : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Адрес регистра rs2
-  SIGNAL decoder_rs2_addr    : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0'); -- Адрес регистра rs2
-  SIGNAL decoder_rd_addr     : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0'); -- Адрес регистра rd
-  SIGNAL decoder_imm         : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Непосредственное значение
-  SIGNAL decoder_control     : control_signals_t;                                -- Управляющие сигналы
-  -- /Decoder
+  -- ========================================
+  -- Register File signals (direct connection to each pipeline)
+  -- ========================================
 
-  -- ALU
-  SIGNAL opcode     : riscv_opcode_t;
-  SIGNAL operand_1  : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
-  SIGNAL operand_2  : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
-  SIGNAL alu_result : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Результат
-  SIGNAL alu_zero   : STD_LOGIC                     := '0';             -- Флаг нуля (для ветвлений)
-  SIGNAL alu_sign   : STD_LOGIC                     := '0';             -- Флаг знака (для сравнений)
-  SIGNAL alu_enable : STD_LOGIC                     := '0';
-  --SIGNAL alu_ready  : STD_LOGIC                     := '0';
-  -- /ALU
+  -- ========================================
+  -- Pipeline interface arrays
+  -- ========================================
+  -- Stall signals from pipelines
+  TYPE stall_array_t IS ARRAY (0 TO NUM_PIPELINES - 1) OF STD_LOGIC;
+  SIGNAL pipeline_stall : stall_array_t;
 
-  -- Registers
-  SIGNAL reg_addr_out_i_1 : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0'); -- адрес регистра (0-31)
-  SIGNAL reg_data_out_i_1 : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- данные регистра по адресу
+  -- Jump signals from pipelines
+  TYPE jump_flag_array_t IS ARRAY (0 TO NUM_PIPELINES - 1) OF STD_LOGIC;
+  TYPE jump_addr_array_t IS ARRAY (0 TO NUM_PIPELINES - 1) OF STD_LOGIC_VECTOR(11 DOWNTO 0);
+  SIGNAL pipeline_jump_flag : jump_flag_array_t;
+  SIGNAL pipeline_jump_addr : jump_addr_array_t;
 
-  SIGNAL reg_addr_out_i_2 : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0'); -- адрес регистра (0-31)
-  SIGNAL reg_data_out_i_2 : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- данные регистра по адресу
+  -- Cache read interface per pipeline (simplified - all get data simultaneously)
+  TYPE cache_addr_array_t IS ARRAY (0 TO NUM_PIPELINES - 1) OF STD_LOGIC_VECTOR(11 DOWNTO 0);
+  TYPE cache_valid_array_t IS ARRAY (0 TO NUM_PIPELINES - 1) OF STD_LOGIC;
+  -- Все конвейеры получают данные одновременно - grant больше не нужен для чтения
+  -- Каждый конвейер получает свою 32-битную команду из 128-битной шины
+  TYPE cache_data_32_array_t IS ARRAY (0 TO NUM_PIPELINES - 1) OF STD_LOGIC_VECTOR(31 DOWNTO 0);
+  SIGNAL p_r_cache_data : cache_data_32_array_t;
 
-  SIGNAL reg_addr_in_i : STD_LOGIC_VECTOR(4 DOWNTO 0)  := (OTHERS => '0'); -- адрес регистра (0-31)
-  SIGNAL reg_data_in_i : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- данные которые хотим записать в регистр 
+  -- Cache write interface per pipeline
+  TYPE cache_data_array_t IS ARRAY (0 TO NUM_PIPELINES - 1) OF STD_LOGIC_VECTOR(7 DOWNTO 0);
+  SIGNAL p_w_cache_address : cache_addr_array_t;
+  SIGNAL p_w_cache_data : cache_data_array_t;
+  SIGNAL p_w_cache_valid : cache_valid_array_t;
+  SIGNAL p_w_cache_grant : cache_valid_array_t;
 
-  SIGNAL reg_write_enable : STD_LOGIC := '0'; -- разрешение на запись, если 0 то данные возвращаются в data_out, иначе записываются в регистр из data_in
-  -- /Registers
+  -- Register interface per pipeline (direct connection)
+  TYPE reg_addr_array_t IS ARRAY (0 TO NUM_PIPELINES - 1) OF STD_LOGIC_VECTOR(4 DOWNTO 0);
+  TYPE reg_data_array_t IS ARRAY (0 TO NUM_PIPELINES - 1) OF STD_LOGIC_VECTOR(31 DOWNTO 0);
+  TYPE reg_grant_array_t IS ARRAY (0 TO NUM_PIPELINES - 1) OF STD_LOGIC_VECTOR(31 DOWNTO 0);
 
-  -- ControlUnit
-  SIGNAL control_unit_enable : STD_LOGIC                     := '0';
-  SIGNAL control_pc_out      : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
-  SIGNAL control_pc_in       : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
-  SIGNAL control_rs1         : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Адрес регистра rs1
-  SIGNAL control_rs2         : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Адрес регистра rs2
-  SIGNAL control_imm         : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0'); -- Адрес регистра rs2
-  SIGNAL control_jump        : STD_LOGIC                     := '0';
-  -- /ControlUnit
+  -- Массив Используемых регистров для каждого конвейера
+  SIGNAL p_reg_grant : reg_grant_array_t := (OTHERS => (OTHERS => '0')); -- какие регистры запрошены 
+  SIGNAL p_reg_grant_valid : reg_grant_array_t := (OTHERS => (OTHERS => '0')); -- получил право на использование регистра
 
-  -- ResultController
-  SIGNAL result_controller_enable  : STD_LOGIC := '0';
-  SIGNAL result_controller_rd_addr : STD_LOGIC_VECTOR(4 DOWNTO 0);
-  SIGNAL result_controller_result  : STD_LOGIC_VECTOR(31 DOWNTO 0) := (OTHERS => '0');
-  -- /ResultController
+  SIGNAL p_reg_addr_out_1 : reg_addr_array_t;
+  SIGNAL p_reg_data_out_1 : reg_data_array_t;
+  SIGNAL p_reg_addr_out_2 : reg_addr_array_t;
+  SIGNAL p_reg_data_out_2 : reg_data_array_t;
+  SIGNAL p_reg_addr_in : reg_addr_array_t;
+  SIGNAL p_reg_data_in : reg_data_array_t;
+  SIGNAL p_reg_write_enable : cache_valid_array_t;
 
-  -- 
-  -- Конвейеры
-  -- 
-  TYPE fetch_state_t IS (RESET, IDLE, FAST_FETCH, WAIT_RESPONSE);
-  TYPE execution_state_t IS (RESET, IDLE, WAIT_RESULT);
+  -- Pipeline status
+  SIGNAL p_active : cache_valid_array_t;
+  SIGNAL p_ready : cache_valid_array_t;
+  
+  -- Current PC from each pipeline (для арбитража по приоритету PC)
+  SIGNAL p_current_pc : pc_array_t;
 
-  SIGNAL fetch_state     : fetch_state_t     := RESET;
-  SIGNAL execution_state : execution_state_t := RESET;
+  -- ========================================
+  -- Control Flow Hazard signals
+  -- ========================================
+  -- Сигналы о наличии незавершенных управляющих инструкций
+  SIGNAL p_control_pending : cache_valid_array_t;
+  SIGNAL p_control_pending_pc : pc_array_t;
+  -- Сигналы управления конвейерами
+  SIGNAL p_flush : cache_valid_array_t;
+  SIGNAL p_control_stall : cache_valid_array_t;
+  -- Минимальный PC среди всех pending control инструкций
+  SIGNAL min_control_pc : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '1');
+  -- Флаг наличия хотя бы одной pending control инструкции
+  SIGNAL any_control_pending : STD_LOGIC := '0';
 
-  SIGNAL execution_control : control_signals_t;            -- Управляющие сигналы
-  SIGNAL execution_rd_addr : STD_LOGIC_VECTOR(4 DOWNTO 0); -- Адрес регистра rd
-  -- 
+  -- ========================================
+  -- Arbiter signals (only for cache write operations)
+  -- ========================================
+  SIGNAL current_write_pipeline : INTEGER RANGE 0 TO NUM_PIPELINES - 1 := 0;
+
 BEGIN
-  pc_stall <= pc_stall_execution OR pc_stall_decoder OR pc_stall_fetch;
+
+  -- ========================================
+  -- PC Controller
+  -- ========================================
   pc_controller_inst : ENTITY work.PC_Controller
+    GENERIC MAP(
+      NUM_PIPELINES => NUM_PIPELINES
+    )
     PORT MAP(
       clk => refclk,
       rst => rst,
-
-      stall     => pc_stall,
-      jump      => pc_jump_flag,
+      stall => pc_stall,
+      jump => pc_jump_flag,
       jump_addr => pc_jump_addr,
-      pc_out    => PC
+      pc_out => PC
     );
 
-  cache : ENTITY work.Cache
+  -- Distribute PC to pipelines (all use same base PC, each gets its own instruction from 128-bit bus)
+  -- Упрощенная схема: все конвейеры получают один PC, но разные инструкции
+  pc_distribution : PROCESS (PC)
+  BEGIN
+    FOR i IN 0 TO NUM_PIPELINES - 1 LOOP
+      pc_pipeline(i) <= STD_LOGIC_VECTOR(unsigned(PC) + to_unsigned(i * 4, 12));
+    END LOOP;
+  END PROCESS pc_distribution;
+
+  -- Передача базового адреса в кэш (выровненный по 16 байт)
+  r_cache_address <= PC;
+  r_cache_valid <= '1'; -- Всегда запрашиваем данные когда не стоим
+
+  -- Распределение 128-битных данных по 4 конвейерам (32 бита каждому)
+  p_r_cache_data(0) <= r_cache_data(31 DOWNTO 0); -- Pipeline 0: PC+0
+  p_r_cache_data(1) <= r_cache_data(63 DOWNTO 32); -- Pipeline 1: PC+4
+  p_r_cache_data(2) <= r_cache_data(95 DOWNTO 64); -- Pipeline 2: PC+8
+  p_r_cache_data(3) <= r_cache_data(127 DOWNTO 96); -- Pipeline 3: PC+12
+
+  -- Combined stall from all pipelines
+  pc_stall_proc : PROCESS (pipeline_stall)
+    VARIABLE stall_or : STD_LOGIC;
+  BEGIN
+    stall_or := '0';
+    FOR i IN 0 TO NUM_PIPELINES - 1 LOOP
+      stall_or := stall_or OR pipeline_stall(i);
+    END LOOP;
+    pc_stall <= stall_or;
+  END PROCESS pc_stall_proc;
+
+  -- Priority jump handler (first pipeline that requests jump wins)
+  jump_handler : PROCESS (pipeline_jump_flag, pipeline_jump_addr)
+  BEGIN
+    pc_jump_flag <= '0';
+    pc_jump_addr <= (OTHERS => '0');
+    FOR i IN 0 TO NUM_PIPELINES - 1 LOOP
+      IF pipeline_jump_flag(i) = '1' THEN
+        pc_jump_flag <= '1';
+        pc_jump_addr <= pipeline_jump_addr(i);
+        EXIT;
+      END IF;
+    END LOOP;
+  END PROCESS jump_handler;
+
+  -- ========================================
+  -- Cache Instance
+  -- ========================================
+  cache_inst : ENTITY work.Cache
     GENERIC MAP(
-      cache_size => cache_size
+      cache_size => cache_size,
+      read_word_size => 4
     )
     PORT MAP(
       refclk => refclk,
-      rst    => rst,
+      rst => rst,
 
-      -- Порты для взаимодействия с ядром процессором, через него возвращаются данные из кэша
       r_address => r_cache_address,
-      r_data    => r_cache_data,
-      r_valid   => r_cache_valid,
-      r_ready   => r_cache_ready,
+      r_data => r_cache_data,
+      r_valid => r_cache_valid,
+      r_ready => r_cache_ready,
 
       w_address => w_cache_address,
-      w_data    => w_cache_data,
-      w_valid   => w_cache_valid,
-      w_ready   => w_cache_ready,
+      w_data => w_cache_data,
+      w_valid => w_cache_valid,
+      w_ready => w_cache_ready,
 
-      -- AXI-4 MM (Только Reader) Ports
-      --  Read address channel signals
-      M_AXI_ARADDR  => M_AXI_ARADDR,
-      M_AXI_ARLEN   => M_AXI_ARLEN,
+      M_AXI_ARADDR => M_AXI_ARADDR,
+      M_AXI_ARLEN => M_AXI_ARLEN,
       M_AXI_ARVALID => M_AXI_ARVALID,
       M_AXI_ARREADY => M_AXI_ARREADY,
 
-      -- Read data channel signals
-      M_AXI_RDATA  => M_AXI_RDATA,
-      M_AXI_RRESP  => M_AXI_RRESP,
-      M_AXI_RLAST  => M_AXI_RLAST,
+      M_AXI_RDATA => M_AXI_RDATA,
+      M_AXI_RRESP => M_AXI_RRESP,
+      M_AXI_RLAST => M_AXI_RLAST,
       M_AXI_RVALID => M_AXI_RVALID,
       M_AXI_RREADY => M_AXI_RREADY,
 
-      M_AXI_AWADDR  => M_AXI_AWADDR,
-      M_AXI_AWLEN   => M_AXI_AWLEN,
+      M_AXI_AWADDR => M_AXI_AWADDR,
+      M_AXI_AWLEN => M_AXI_AWLEN,
       M_AXI_AWVALID => M_AXI_AWVALID,
       M_AXI_AWREADY => M_AXI_AWREADY,
 
-      M_AXI_WDATA  => M_AXI_WDATA,
-      M_AXI_WLAST  => M_AXI_WLAST,
+      M_AXI_WDATA => M_AXI_WDATA,
+      M_AXI_WLAST => M_AXI_WLAST,
       M_AXI_WVALID => M_AXI_WVALID,
       M_AXI_WREADY => M_AXI_WREADY,
 
-      M_AXI_BRESP  => M_AXI_BRESP,
+      M_AXI_BRESP => M_AXI_BRESP,
       M_AXI_BVALID => M_AXI_BVALID,
       M_AXI_BREADY => M_AXI_BREADY
     );
-
-  registers : ENTITY work.Registers
+  -- ========================================
+  -- Register File Instance (4 read channels, 4 write channels)
+  -- ========================================
+  registers_inst : ENTITY work.Registers
     PORT MAP(
       refclk => refclk,
-      rst    => rst,
-
-      addr_out_i_1 => reg_addr_out_i_1, -- адрес регистра (0-31)
-      data_out_i_1 => reg_data_out_i_1, -- данные регистра по адресу
-
-      addr_out_i_2 => reg_addr_out_i_2, -- адрес регистра (0-31)
-      data_out_i_2 => reg_data_out_i_2, -- данные регистра по адресу
-
-      addr_in_i => reg_addr_in_i, -- адрес регистра (0-31)
-      data_in_i => reg_data_in_i, -- данные которые хотим записать в регистр 
-
-      write_enable => reg_write_enable -- если 0 то данные возвращаются в data_out, иначе записываются в регистр из data_in
-    );
-
-  decoder : ENTITY work.Decoder
-    PORT MAP(
-      clk => refclk,
       rst => rst,
-
-      instruction => decoder_instruction, -- Входная инструкция
-
-      reg_addr_out_i_1 => reg_addr_out_i_1, -- адрес регистра (0-31)
-      reg_data_out_i_1 => reg_data_out_i_1, -- данные регистра по адресу
-
-      reg_addr_out_i_2 => reg_addr_out_i_2, -- адрес регистра (0-31)
-      reg_data_out_i_2 => reg_data_out_i_2, -- данные регистра по адресу
-
-      rs1_addr => decoder_rs1_addr,
-      rs2_addr => decoder_rs2_addr,
-
-      rs1 => decoder_rs1, -- регистр rs1
-      rs2 => decoder_rs2, -- регистр rs2
-
-      rd_addr => decoder_rd_addr, -- Адрес регистра rd
-      imm     => decoder_imm,     -- Непосредственное значение
-
-      control => decoder_control
+      -- Pipeline 0
+      p0_addr_out_1 => p_reg_addr_out_1(0),
+      p0_data_out_1 => p_reg_data_out_1(0),
+      p0_addr_out_2 => p_reg_addr_out_2(0),
+      p0_data_out_2 => p_reg_data_out_2(0),
+      p0_addr_in => p_reg_addr_in(0),
+      p0_data_in => p_reg_data_in(0),
+      p0_write_en => p_reg_write_enable(0),
+      -- Pipeline 1
+      p1_addr_out_1 => p_reg_addr_out_1(1),
+      p1_data_out_1 => p_reg_data_out_1(1),
+      p1_addr_out_2 => p_reg_addr_out_2(1),
+      p1_data_out_2 => p_reg_data_out_2(1),
+      p1_addr_in => p_reg_addr_in(1),
+      p1_data_in => p_reg_data_in(1),
+      p1_write_en => p_reg_write_enable(1),
+      -- Pipeline 2
+      p2_addr_out_1 => p_reg_addr_out_1(2),
+      p2_data_out_1 => p_reg_data_out_1(2),
+      p2_addr_out_2 => p_reg_addr_out_2(2),
+      p2_data_out_2 => p_reg_data_out_2(2),
+      p2_addr_in => p_reg_addr_in(2),
+      p2_data_in => p_reg_data_in(2),
+      p2_write_en => p_reg_write_enable(2),
+      -- Pipeline 3
+      p3_addr_out_1 => p_reg_addr_out_1(3),
+      p3_data_out_1 => p_reg_data_out_1(3),
+      p3_addr_out_2 => p_reg_addr_out_2(3),
+      p3_data_out_2 => p_reg_data_out_2(3),
+      p3_addr_in => p_reg_addr_in(3),
+      p3_data_in => p_reg_data_in(3),
+      p3_write_en => p_reg_write_enable(3)
     );
 
-  alu : ENTITY work.ALU
-    PORT MAP(
-      refclk => refclk,
-      rst    => rst,
-
-      opcode    => opcode,
-      operand_1 => operand_1,
-      operand_2 => operand_2,
-
-      result => alu_result, -- Результат
-
-      zero => alu_zero, -- Флаг нуля (для ветвлений)
-      sign => alu_sign, -- Флаг знака (для сравнений)
-
-      enable => alu_enable
-      --ready => alu_ready
-    );
-
-  control_unit : ENTITY work.ControlUnit
-    PORT MAP(
-      refclk => refclk,
-      rst    => rst,
-
-      opcode => opcode,
-
-      rs1 => control_rs1,
-      rs2 => control_rs2,
-
-      imm => control_imm,
-
-      enable => control_unit_enable,
-
-      pc_in  => control_pc_in,
-      pc_out => control_pc_out,
-
-      jump => control_jump
-    );
-
-  result_controller : ENTITY work.ResultController
-    PORT MAP(
-      refclk => refclk,
-      rst    => rst,
-
-      enable  => result_controller_enable,
-      result  => result_controller_result,
-      rd_addr => result_controller_rd_addr,
-
-      reg_addr_in      => reg_addr_in_i,
-      reg_data_in      => reg_data_in_i,
-      reg_write_enable => reg_write_enable
-    );
-
-  -- 
-  -- Precess
-  -- 
-
-  fetch_state_proc : PROCESS (refclk)
+  -- ========================================
+  -- Cache Write Arbiter (Round-Robin)
+  -- ========================================
+  cache_write_arbiter : PROCESS (refclk)
+    VARIABLE next_pipeline : INTEGER RANGE 0 TO NUM_PIPELINES - 1;
   BEGIN
     IF rising_edge(refclk) THEN
       IF rst = '1' THEN
-        fetch_state <= RESET;
+        current_write_pipeline <= 0;
+        FOR i IN 0 TO NUM_PIPELINES - 1 LOOP
+          p_w_cache_grant(i) <= '0';
+        END LOOP;
       ELSE
-        CASE fetch_state IS
-          WHEN IDLE =>
-            IF r_cache_ready = '1' THEN
-              fetch_state <= FAST_FETCH;
-            END IF;
+        -- Clear all grants
+        FOR i IN 0 TO NUM_PIPELINES - 1 LOOP
+          p_w_cache_grant(i) <= '0';
+        END LOOP;
 
-          WHEN FAST_FETCH =>
-            IF r_cache_ready = '0' THEN
-              fetch_state <= WAIT_RESPONSE;
-            ELSE
-              fetch_state <= FAST_FETCH;
-            END IF;
-
-          WHEN WAIT_RESPONSE =>
-            IF r_cache_ready = '1' THEN
-              fetch_state <= FAST_FETCH;
-            END IF;
-
-          WHEN OTHERS =>
-            fetch_state <= IDLE;
-        END CASE;
+        -- Find next requesting pipeline (round-robin)
+        FOR j IN 0 TO NUM_PIPELINES - 1 LOOP
+          next_pipeline := (current_write_pipeline + j) MOD NUM_PIPELINES;
+          IF p_w_cache_valid(next_pipeline) = '1' THEN
+            p_w_cache_grant(next_pipeline) <= '1';
+            current_write_pipeline <= (next_pipeline + 1) MOD NUM_PIPELINES;
+            EXIT;
+          END IF;
+        END LOOP;
       END IF;
     END IF;
-  END PROCESS fetch_state_proc;
+  END PROCESS cache_write_arbiter;
 
-  fetch_output_proc : PROCESS (rst, PC, fetch_state, r_cache_ready, pc_stall_decoder, pc_stall_execution)
+  -- Multiplex cache write signals
+  cache_write_mux : PROCESS (p_w_cache_address, p_w_cache_data, p_w_cache_valid, p_w_cache_grant)
   BEGIN
-    -- Значения по умолчанию
+    w_cache_address <= (OTHERS => '0');
+    w_cache_data <= (OTHERS => '0');
+    w_cache_valid <= '0';
+    FOR i IN 0 TO NUM_PIPELINES - 1 LOOP
+      IF p_w_cache_grant(i) = '1' THEN
+        w_cache_address <= p_w_cache_address(i);
+        w_cache_data <= p_w_cache_data(i);
+        w_cache_valid <= p_w_cache_valid(i);
+        EXIT;
+      END IF;
+    END LOOP;
+  END PROCESS cache_write_mux;
 
-    IF rst = '1' THEN
-      decoder_instruction <= (OTHERS => '0');
-      r_cache_address     <= (OTHERS => '0');
-      r_cache_valid       <= '0';
-      pc_stall_fetch      <= '1';
-    ELSIF pc_stall_decoder = '1' OR pc_stall_execution = '1' THEN
-      decoder_instruction <= decoder_instruction;
-      r_cache_address     <= r_cache_address;
-      r_cache_valid       <= r_cache_valid;
-      pc_stall_fetch      <= pc_stall_fetch;
-    ELSE
-      CASE fetch_state IS
-        WHEN IDLE =>
-          r_cache_address <= PC;
-          r_cache_valid   <= '1';
-          pc_stall_fetch  <= '1';
+  gen_pipelines : FOR i IN 0 TO NUM_PIPELINES - 1 GENERATE
+  BEGIN
+    pipeline_i : ENTITY work.Pipeline
+      GENERIC MAP(
+        PIPELINE_ID => i
+      )
+      PORT MAP(
+        refclk => refclk,
+        rst => rst,
 
-        WHEN FAST_FETCH =>
-          IF r_cache_ready = '0' THEN
-            decoder_instruction <= (OTHERS => '0');
-            r_cache_address     <= PC;
-            r_cache_valid       <= '0';
-            pc_stall_fetch      <= '1';
+        pc_in => pc_pipeline(i),
+        pc_stall_out => pipeline_stall(i),
+        pc_jump_flag => pipeline_jump_flag(i),
+        pc_jump_addr => pipeline_jump_addr(i),
+
+        r_cache_data => p_r_cache_data(i),
+        r_cache_ready => r_cache_ready,
+
+        w_cache_address => p_w_cache_address(i),
+        w_cache_data => p_w_cache_data(i),
+        w_cache_valid => p_w_cache_valid(i),
+        w_cache_ready => w_cache_ready,
+        w_cache_grant => p_w_cache_grant(i),
+
+        reg_addr_out_1 => p_reg_addr_out_1(i),
+        reg_data_out_1 => p_reg_data_out_1(i),
+        reg_addr_out_2 => p_reg_addr_out_2(i),
+        reg_data_out_2 => p_reg_data_out_2(i),
+
+        reg_addr_in => p_reg_addr_in(i),
+        reg_data_in => p_reg_data_in(i),
+        reg_write_enable => p_reg_write_enable(i),
+
+        reg_grant => p_reg_grant(i),
+        reg_grant_valid => p_reg_grant_valid(i),
+
+        pipeline_active => p_active(i),
+        pipeline_ready => p_ready(i),
+        
+        current_pc => p_current_pc(i),
+        
+        -- Control flow hazard interface
+        control_pending => p_control_pending(i),
+        control_pending_pc => p_control_pending_pc(i),
+        flush => p_flush(i),
+        control_stall_in => p_control_stall(i)
+      );
+  END GENERATE;
+
+  -- ========================================
+  -- Control Flow Hazard Management
+  -- ========================================
+  -- Принцип: любая управляющая инструкция (branch/jump) останавливает
+  -- выборку следующих инструкций до её разрешения.
+  -- 
+  -- Логика:
+  -- 1. Находим минимальный PC среди всех pending control инструкций
+  -- 2. Все конвейеры с PC > min_control_pc получают control_stall
+  -- 3. При jump - конвейеры с PC > min_control_pc получают flush
+  
+  -- Определяем наличие pending control инструкций и минимальный PC
+  control_pending_detect : PROCESS (p_control_pending, p_control_pending_pc)
+    VARIABLE min_pc : unsigned(11 DOWNTO 0);
+    VARIABLE has_pending : STD_LOGIC;
+  BEGIN
+    min_pc := (OTHERS => '1'); -- Максимальное значение
+    has_pending := '0';
+    
+    FOR i IN 0 TO NUM_PIPELINES - 1 LOOP
+      IF p_control_pending(i) = '1' THEN
+        has_pending := '1';
+        IF unsigned(p_control_pending_pc(i)) < min_pc THEN
+          min_pc := unsigned(p_control_pending_pc(i));
+        END IF;
+      END IF;
+    END LOOP;
+    
+    any_control_pending <= has_pending;
+    min_control_pc <= STD_LOGIC_VECTOR(min_pc);
+  END PROCESS control_pending_detect;
+  
+  -- Управление stall и flush для каждого конвейера
+  control_flow_manager : PROCESS (refclk)
+    VARIABLE jump_occurred : STD_LOGIC;
+    VARIABLE jump_source_pc : unsigned(11 DOWNTO 0);
+  BEGIN
+    IF rising_edge(refclk) THEN
+      IF rst = '1' THEN
+        FOR i IN 0 TO NUM_PIPELINES - 1 LOOP
+          p_flush(i) <= '0';
+          p_control_stall(i) <= '0';
+        END LOOP;
+      ELSE
+        -- По умолчанию сбрасываем flush (он активен только 1 такт)
+        FOR i IN 0 TO NUM_PIPELINES - 1 LOOP
+          p_flush(i) <= '0';
+        END LOOP;
+        
+        -- Проверяем, произошел ли jump
+        jump_occurred := '0';
+        jump_source_pc := (OTHERS => '1');
+        FOR i IN 0 TO NUM_PIPELINES - 1 LOOP
+          IF pipeline_jump_flag(i) = '1' THEN
+            jump_occurred := '1';
+            IF unsigned(p_control_pending_pc(i)) < jump_source_pc THEN
+              jump_source_pc := unsigned(p_control_pending_pc(i));
+            END IF;
+          END IF;
+        END LOOP;
+        
+        -- Логика для каждого конвейера
+        FOR i IN 0 TO NUM_PIPELINES - 1 LOOP
+          IF any_control_pending = '1' THEN
+            -- Есть pending control инструкция
+            IF unsigned(pc_pipeline(i)) > unsigned(min_control_pc) THEN
+              -- Этот конвейер имеет PC больше чем control инструкция
+              -- Останавливаем выборку новых инструкций
+              p_control_stall(i) <= '1';
+              
+              -- Если произошел jump - сбрасываем этот конвейер
+              IF jump_occurred = '1' AND unsigned(pc_pipeline(i)) > jump_source_pc THEN
+                p_flush(i) <= '1';
+              END IF;
+            ELSE
+              -- PC меньше или равен control инструкции - можно продолжать
+              p_control_stall(i) <= '0';
+            END IF;
           ELSE
-            decoder_instruction <= r_cache_data;
-            r_cache_address     <= PC;
-            r_cache_valid       <= '1';
-            pc_stall_fetch      <= '0';
+            -- Нет pending control инструкций - работаем нормально
+            p_control_stall(i) <= '0';
           END IF;
-
-        WHEN WAIT_RESPONSE =>
-          pc_stall_fetch <= '1';
-          IF r_cache_ready = '1' THEN
-            decoder_instruction <= r_cache_data;
-            r_cache_address     <= PC;
-            r_cache_valid       <= '1';
-            pc_stall_fetch      <= '0';
-          END IF;
-
-        WHEN OTHERS                    =>
-          decoder_instruction <= (OTHERS => '0');
-          r_cache_address     <= (OTHERS => '0');
-          r_cache_valid       <= '0';
-          pc_stall_fetch      <= '1';
-      END CASE;
+        END LOOP;
+      END IF;
     END IF;
-  END PROCESS fetch_output_proc;
+  END PROCESS control_flow_manager;
 
-  decode : PROCESS (rst, PC, decoder_instruction, result_controller_rd_addr, result_controller_enable)
+  -- ========================================
+  -- Register Grant Arbiter (Priority-based by lowest PC, per-register)
+  -- Использует реальный PC инструкции из каждого pipeline, а не pc_pipeline
+  -- ========================================
+  reg_grant_arbiter : PROCESS (p_reg_grant, p_current_pc)
+    VARIABLE granted_regs : STD_LOGIC_VECTOR(31 DOWNTO 0);
+    VARIABLE grant_mask : STD_LOGIC_VECTOR(31 DOWNTO 0);
+    VARIABLE min_pc_idx : INTEGER RANGE 0 TO NUM_PIPELINES - 1;
+    VARIABLE min_pc : unsigned(11 DOWNTO 0);
+    VARIABLE curr_pc : unsigned(11 DOWNTO 0);
+    VARIABLE processed : STD_LOGIC_VECTOR(NUM_PIPELINES - 1 DOWNTO 0);
   BEGIN
-    IF rst = '1' THEN
-      execution_control   <= INVALID_CONTROL;
-      execution_rd_addr   <= (OTHERS => '0');
-      opcode              <= OP_INVALID;
-      operand_1           <= (OTHERS => '0');
-      operand_2           <= (OTHERS => '0');
-      control_pc_in       <= (OTHERS => '0');
-      control_rs1         <= (OTHERS => '0');
-      control_rs2         <= (OTHERS => '0');
-      control_imm         <= (OTHERS => '0');
-      control_unit_enable <= '0';
-      alu_enable          <= '0';
-      w_cache_address     <= (OTHERS => '0');
-      w_cache_data        <= (OTHERS => '0');
-      w_cache_valid       <= '0';
-    ELSIF pc_stall_execution = '1' THEN
-      execution_control <= execution_control;
-      execution_rd_addr <= execution_rd_addr;
-      opcode            <= opcode;
-      w_cache_address   <= w_cache_address;
-      w_cache_data      <= w_cache_data;
-      w_cache_valid     <= w_cache_valid;
-    ELSE
-      pc_stall_decoder  <= '0';
-      alu_enable        <= '1';
-      execution_control <= decoder_control;
-      execution_rd_addr <= decoder_rd_addr;
-      opcode            <= decoder_control.opcode;
+    granted_regs := (OTHERS => '0');
+    p_reg_grant_valid <= (OTHERS => (OTHERS => '0'));
+    processed := (OTHERS => '0');
 
-      IF decoder_control.alu_en = '1' THEN
-        -- ALU
-        operand_1 <= decoder_rs1;
-
-        IF decoder_rs1_addr = result_controller_rd_addr AND result_controller_enable = '1' THEN
-          pc_stall_decoder  <= '1';
-          alu_enable        <= '0';
-          execution_control <= INVALID_CONTROL;
-
-        END IF;
-
-        IF decoder_control.imm_type = IMM_I_TYPE OR decoder_control.imm_type = IMM_U_TYPE THEN
-          operand_2 <= decoder_imm;
-        ELSE
-          operand_2 <= decoder_rs2;
-
-          IF decoder_rs2_addr = result_controller_rd_addr AND result_controller_enable = '1' THEN
-            pc_stall_decoder  <= '1';
-            alu_enable        <= '0';
-            execution_control <= INVALID_CONTROL;
+    -- Обрабатываем конвейеры в порядке возрастания PC (наименьший PC = наивысший приоритет)
+    -- Используем p_current_pc - реальный PC инструкции внутри каждого pipeline
+    FOR round IN 0 TO NUM_PIPELINES - 1 LOOP
+      -- Находим конвейер с минимальным PC среди необработанных
+      min_pc := (OTHERS => '1'); -- Максимальное значение
+      min_pc_idx := 0;
+      
+      FOR i IN 0 TO NUM_PIPELINES - 1 LOOP
+        IF processed(i) = '0' THEN
+          curr_pc := unsigned(p_current_pc(i));
+          IF curr_pc < min_pc THEN
+            min_pc := curr_pc;
+            min_pc_idx := i;
           END IF;
         END IF;
-      ELSIF decoder_control.branch = '1' OR decoder_control.jump = '1' THEN
-        -- ControlUnit
-        control_pc_in       <= STD_LOGIC_VECTOR(resize(unsigned(PC) - 2 * 4, 32)); -- отнимаем 1 команду т.к это уже второй этап конвейера
-        control_unit_enable <= '1';
+      END LOOP;
 
-        IF (decoder_rs1_addr = result_controller_rd_addr OR decoder_rs2_addr = result_controller_rd_addr) AND result_controller_enable = '1' THEN
-          pc_stall_decoder    <= '1';
-          control_unit_enable <= '0';
-          execution_control   <= INVALID_CONTROL;
-        END IF;
+      -- Отмечаем конвейер как обработанный
+      processed(min_pc_idx) := '1';
 
-        control_rs1 <= decoder_rs1;
-        control_rs2 <= decoder_rs2;
+      -- Разрешаем только те регистры, которые еще не выданы
+      grant_mask := p_reg_grant(min_pc_idx) AND NOT granted_regs;
 
-        control_imm <= decoder_imm;
+      -- Выдаём grant только на неконфликтные регистры
+      p_reg_grant_valid(min_pc_idx) <= grant_mask;
 
-      ELSIF decoder_control.mem_write = '1' THEN
-        w_cache_address <= decoder_imm(11 DOWNTO 0);
-        w_cache_data    <= decoder_rs2(7 DOWNTO 0);
-        w_cache_valid   <= '1';
-      ELSE
-        control_unit_enable <= '0';
-        alu_enable          <= '0';
-        w_cache_address     <= (OTHERS => '0');
-        w_cache_data        <= (OTHERS => '0');
-        w_cache_valid       <= '0';
-      END IF;
-    END IF;
-  END PROCESS decode;
-
-  execution_output_proc : PROCESS (rst, refclk)
-  BEGIN
-    IF rising_edge(refclk) THEN
-      IF rst = '1' THEN
-        result_controller_enable  <= '0';
-        result_controller_result  <= (OTHERS => '0');
-        result_controller_rd_addr <= (OTHERS => '0');
-        pc_jump_flag              <= '0';
-        pc_jump_addr              <= (OTHERS => '0');
-      ELSE
-        CASE execution_state IS
-          WHEN IDLE =>
-            pc_stall_execution <= execution_control.mem_write;
-            IF execution_control.reg_write = '1' THEN
-              pc_jump_flag <= '0';
-              pc_jump_addr <= (OTHERS => '0');
-
-              result_controller_enable  <= '1';
-              result_controller_result  <= alu_result;
-              result_controller_rd_addr <= execution_rd_addr;
-
-            ELSIF control_jump = '1' AND (execution_control.branch = '1' OR execution_control.jump = '1') THEN
-              pc_jump_addr <= control_pc_out(11 DOWNTO 0);
-              pc_jump_flag <= '1';
-
-              result_controller_enable  <= '0';
-              result_controller_result  <= (OTHERS => '0');
-              result_controller_rd_addr <= (OTHERS => '0');
-            ELSE
-              result_controller_enable  <= '0';
-              result_controller_result  <= (OTHERS => '0');
-              result_controller_rd_addr <= (OTHERS => '0');
-              pc_jump_flag              <= '0';
-              pc_jump_addr              <= (OTHERS => '0');
-            END IF;
-
-          WHEN WAIT_RESULT =>
-            pc_stall_execution <= '1';
-
-          WHEN OTHERS =>
-            pc_stall_execution <= '0';
-        END CASE;
-      END IF;
-    END IF;
-  END PROCESS execution_output_proc;
-
-  execution_state_proc : PROCESS (refclk)
-  BEGIN
-    IF rising_edge(refclk) THEN
-      IF rst = '1' THEN
-        execution_state <= RESET;
-      ELSE
-        CASE execution_state IS
-          WHEN IDLE =>
-            IF execution_control.mem_write = '1' THEN
-              execution_state <= WAIT_RESULT;
-            END IF;
-
-          WHEN WAIT_RESULT =>
-            IF w_cache_ready = '1' THEN
-              execution_state <= IDLE;
-            END IF;
-
-          WHEN OTHERS =>
-            execution_state <= IDLE;
-        END CASE;
-      END IF;
-    END IF;
-  END PROCESS execution_state_proc;
-
-  result : PROCESS (refclk)
-  BEGIN
-    IF rising_edge(refclk) THEN
-      IF rst = '1' THEN
-      END IF;
-    END IF;
-  END PROCESS result;
+      -- Обновляем глобальную маску выданных регистров
+      granted_regs := granted_regs OR grant_mask;
+    END LOOP;
+  END PROCESS reg_grant_arbiter;
 
 END ARCHITECTURE rtl;
